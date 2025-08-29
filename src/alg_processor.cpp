@@ -1,0 +1,92 @@
+/**
+ * @file:    alg_processor.cpp
+ * @brief:   PID算法调度数据处理：包含数据输入、数据处理、数据输出
+ *
+ *
+ * @author:  Wesley
+ * @date:    2025-07-21 10:09:25
+ * @note:
+ */
+
+#include "alg_processor.h"
+
+#include <glog/logging.h>
+#include <log.h>
+
+// 构造函数：初始化 stopFlag
+AlgProcessor::AlgProcessor() : stop_flag_(false) {}
+
+// 析构函数：确保停止处理并清理资源
+AlgProcessor::~AlgProcessor() {
+  stop();  // 确保停止所有处理
+}
+
+// 设置回调函数
+void AlgProcessor::set_callback(Callback callback) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  callback_ = callback;
+}
+
+// 添加数据到输入队列
+void AlgProcessor::add_data(const AlgInput& data) {
+  AWARN<<"添加数据=============================";
+  std::lock_guard<std::mutex> lock(mtx_);
+  input_queue_.push(data);
+
+  AWARN<<"完成添加数据==========================";
+  cv_input_.notify_one();  // 通知等待线程有数据可处理
+}
+
+// 数据处理函数
+void AlgProcessor::process_data() {
+  AERROR<<"进入process====================";
+  while (!stop_flag_) {
+    std::unique_lock<std::mutex> lock(mtx_);
+    // 阻塞等待数据
+    cv_input_.wait(lock, [this]() {
+      return !input_queue_.empty() || stop_flag_;
+    });  // 等待直到输入队列有数据或停止标志
+
+    if (stop_flag_ && input_queue_.empty()) {
+      return;  // 如果停止标志被设置且队列为空，退出
+    }
+  // AERROR<<"AAAAAAAAAAAAAAAAAAAA====================";
+  // std::this_thread::sleep_for(std::chrono::seconds(5));
+    // 数据非空
+    if (!input_queue_.empty()) {
+      // 获取第一条数据
+      AlgInput alg_input_data = input_queue_.front();
+      input_queue_.pop();
+      lock.unlock();  // 释放锁，允许其他线程操作队列
+
+      //-----------------------------调用PID算法部分-----------------------------
+      // 调用核心函数
+      AERROR<<"调用PID算法==================================";
+      AlgResult alg_result = PID_parameter_transfer(alg_input_data);
+      AWARN << "调用算法结果--" << "左截流板: " << alg_result.new_left << "mm, "
+            << "右截流板: " << alg_result.new_right << "mm";
+      //-----------------------------调用PID算法部分-----------------------------
+
+      //-----------------------------执行回调函数-----------------------------
+      // 回调函数
+      if (callback_) {
+        callback_(alg_result);
+      }
+      //-----------------------------执行回调函数-----------------------------
+    }
+  }
+}
+
+// 停止处理
+void AlgProcessor::stop() {
+  stop_flag_ = true;
+  cv_input_.notify_all();  // 唤醒所有线程
+}
+
+// 清除数据
+void AlgProcessor::clear() {
+  std::lock_guard<std::mutex> lock(mtx_);
+  while (!input_queue_.empty()) {
+    input_queue_.pop();
+  }
+}
