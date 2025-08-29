@@ -97,6 +97,7 @@ std::vector<uint8_t> MotorParser::receive(uint8_t cmd) {
         //         printf("缓冲区有 %d 字节数据待处理\n", nbytes);
         //     }
         // }
+        AINFO << "before read";
         nbytes = read(socket_fd, &frame, sizeof(frame));
         if (nbytes < 0) {
             AINFO<<"=======MotorParser::nbytes======="<<nbytes;

@@ -9,6 +9,8 @@
 #include "data_center.h"
 #include "motor.h"
 #include "controller.h"
+#include <thread>
+#include <pthread.h>
 
 // 截流板控制实现与测试验证 20250821
 // 《截流板控制实现与验证测试策略-修改.docx》
@@ -136,7 +138,7 @@ std::map<int, MotorStateData> MotorMonitorThread::GetMotorStatus()
 
 void MotorMonitorThread::MonitoringLoop()
 {
-
+    pthread_setname_np(pthread_self(), "motor_mt"); // 设置线程名
     // 为每个电机状态添加计数器
     std::map<int, std::map<int, int>> error_counters; // <电机索引, <错误类型, 计数>>
 
@@ -146,7 +148,7 @@ void MotorMonitorThread::MonitoringLoop()
 
         // 阻塞等待新数据
         if (!motor_data_queue.Pop(motors) || motors.size() != 4)
-            break;
+            continue;
         for (int i = 0; i < motors.size(); i++)
         { // 遍历所有电机
             MotorData data = motors[i];
@@ -324,6 +326,7 @@ ImuStateData ImuMonitorThread::GetImuStatus()
 
 void ImuMonitorThread::MonitoringLoop()
 {
+    pthread_setname_np(pthread_self(), "imu_mt"); // 设置线程名
     //=================================================================================
     if (PID_CONTROL_TEST) // 测试控制算法
     {
@@ -604,13 +607,14 @@ PCStateData LinuxPcMonitorThread::GetPCStatus()
 
 void LinuxPcMonitorThread::MonitoringLoop()
 {
+    pthread_setname_np(pthread_self(), "pc_mt"); // 设置线程名
     while (running_)
     {
         LinuxPcData data;
 
         // 阻塞等待新数据
         if (!pc_data_queue.Pop(data))
-            break;
+            continue;
         pc_state_.alarm_code = 301;
         // === CPU监控（每10秒更新）===
         if (data.cpu_usage > 70.0)

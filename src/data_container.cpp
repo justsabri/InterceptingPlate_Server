@@ -90,6 +90,7 @@ void DataContainer::refreshPcData(void){
 
 // 添加线程执行函数
 void DataContainer::motor_thread() {
+    pthread_setname_np(pthread_self(), "motor_t"); // 设置线程名
     using namespace std::chrono;
     auto interval = microseconds(1000000 / motor_freq_hz_);
     auto next_run = steady_clock::now();
