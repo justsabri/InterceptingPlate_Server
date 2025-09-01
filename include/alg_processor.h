@@ -18,6 +18,7 @@
 #include <queue>
 
 #include "pid_control.h"
+#include "Thread_Pool.h"
 
 #define AlgInput PID_Input
 #define AlgResult PID_Output
@@ -48,6 +49,10 @@ class AlgProcessor {
   // 清除数据
   void clear();
 
+  // 存储数据
+  void save_data(AlgInput in, AlgResult res);
+  std::string get_now_string(std::string format = "%Y-%m-%d %H:%M:%S");
+
  private:
   // 输入数据队列，存储结构体
   std::queue<AlgInput> input_queue_;
@@ -60,8 +65,15 @@ class AlgProcessor {
   // 停止标志
   std::atomic<bool> stop_flag_{false};
 
+  // 测试数据记录标志
+  bool save_data_;
+  std::string file_name_;
+
   // 回调函数
   Callback callback_ = nullptr;
+
+  // 线程池
+  ThreadPool thread_pool_;
 };
 
 #endif  // ALG_PROCESSOR_H

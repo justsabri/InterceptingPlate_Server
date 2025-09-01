@@ -3,6 +3,26 @@
 #include <algorithm>
 #include "log.h"
 #include <sstream>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+#define PARAM_PTR(data, p) ((void *)((uint8_t *)data + (p)->offset))
+
+MotorParamItem g_param_table[] = {
+    {"status", PARAM_TYPE_ERROR, offsetof(MotorData, status), 0x0A},
+    {"mode", PARAM_TYPE_STRING, offsetof(MotorData, mode), 0x03},
+    {"voltage", PARAM_TYPE_DOUBLE, offsetof(MotorData, voltage), 0x14},
+    {"current", PARAM_TYPE_DOUBLE, offsetof(MotorData, current), 0x04},
+    {"position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, position), 0x08},
+    {"position_offset", PARAM_TYPE_INT32, offsetof(MotorData, position_offset), 0x54},
+    {"encoder_battery_voltage", PARAM_TYPE_DOUBLE, offsetof(MotorData, encoder_battery_voltage), 0x78},
+    {"max_forward_speed", PARAM_TYPE_THETA, offsetof(MotorData, max_forward_speed), 0x18},
+    {"min_reverse_speed", PARAM_TYPE_THETA, offsetof(MotorData, min_reverse_speed), 0x19},
+    {"max_forward_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, max_forward_position), 0x1A},
+    {"min_reverse_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, min_reverse_position), 0x1B},
+    {"temperature", PARAM_TYPE_DOUBLE, offsetof(MotorData, temperature), 0x31}
+};
 
 // ====================== MotorParser单例实现 ======================
 MotorParser& MotorParser::getInstance() {
@@ -50,6 +70,20 @@ int MotorParser::init(const std::string& can_channel)
         close(socket_fd);
         return 3;
     }
+
+    // 4. 读取电机配置
+    namespace fs = std::filesystem;
+    fs::path config_path = fs::current_path() / "config/config.json";
+    std::ifstream config_file(config_path);
+    nlohmann::json config = nlohmann::json::parse(config_file);
+    for (const auto& [motor_id, motor_info] : config["motors"].items()) {
+        motor_data_.insert({std::stoi(motor_id,nullptr,16), MotorData()});
+    }
+    int motor_freq = config["motor_freq"].get<int>();
+    wait_time_ = 1000 / motor_freq * 0.5; // ms
+
+    // 5. 启动数据接收线程
+    read_thread_ = std::thread(&MotorParser::receiveLoop, this);
 
     return 0;
 }
@@ -138,7 +172,7 @@ std::vector<uint8_t> MotorParser::receive(uint8_t cmd) {
 
         return std::vector<uint8_t>(frame.data, frame.data + frame.can_dlc);
     }else{
-         return std::vector<uint8_t>(frame.data, frame.data + frame.can_dlc);
+        return std::vector<uint8_t>(frame.data, frame.data + frame.can_dlc);
     }
 }
 
@@ -452,26 +486,147 @@ void MotorParser::flush(int can_id) {
 }
 
 //获取电机数据
-MotorData MotorParser::getMotorData(int can_id){
-    // AINFO << "lock 1";
-    // std::lock_guard<std::mutex> lock(mtx_);
-    // AINFO <<"lock 2";
-    MotorData data;
-    data.mode = getMotorMode(can_id);
-    // AERROR <<"电机工作模式："<<data.mode;
-    data.current = getMotorCurrent(can_id);
-    data.voltage = getMotorVoltage(can_id);
-    data.position = getMotorPosition(can_id);
-    AINFO<<"==========================电机："<<can_id<<"=================当前位置"<<data.position;
-    data.position_offset = getPositionOffset(can_id);
+// MotorData MotorParser::getMotorData(int can_id){
+//     // AINFO << "lock 1";
+//     // std::lock_guard<std::mutex> lock(mtx_);
+//     // AINFO <<"lock 2";
+//     MotorData data;
+//     data.mode = getMotorMode(can_id);
+//     data.current = getMotorCurrent(can_id);
+//     data.voltage = getMotorVoltage(can_id);
+//     data.position = getMotorPosition(can_id);
+//     AINFO<<"==========================电机："<<can_id<<"=================当前位置"<<data.position;
+//     data.position_offset = getPositionOffset(can_id);
    
-    data.encoder_battery_voltage = getEncoderBatteryVoltage(can_id);
-    AINFO<<"==========================电机："<<can_id<<"=================电压 "<<data.encoder_battery_voltage;
-    data.max_forward_speed = getMaxForwardSpeed(can_id);
-    data.min_reverse_speed = getMinReverseSpeed(can_id);
-    data.max_forward_position = getMaxForwardPosition(can_id);
-    AINFO << "max_forward_position " << data.max_forward_position;
-    data.min_reverse_position = getMinReservePosition(can_id);
-    data.temperature = getMotorTemperature(can_id);
-    return data;
+//     data.encoder_battery_voltage = getEncoderBatteryVoltage(can_id);
+//     AINFO<<"==========================电机："<<can_id<<"=================电压 "<<data.encoder_battery_voltage;
+//     data.max_forward_speed = getMaxForwardSpeed(can_id);
+//     data.min_reverse_speed = getMinReverseSpeed(can_id);
+//     data.max_forward_position = getMaxForwardPosition(can_id);
+//     AINFO << "max_forward_position " << data.max_forward_position;
+//     data.min_reverse_position = getMinReservePosition(can_id);
+//     data.temperature = getMotorTemperature(can_id);
+//     return data;
+// }
+
+MotorData MotorParser::getMotorData(int can_id) {
+    queryAll(can_id);
+    std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_));
+    return motor_data_[can_id];
+}
+
+void MotorParser::queryAll(int can_id) {
+    for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++) {
+        MotorParamItem* item = &g_param_table[i];
+        send(can_id, item->can_cmd, {});
+    }
+}
+
+MotorParamItem *MotorParser::getItemByCanCmd(uint16_t can_cmd)
+{
+    for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++) {
+        MotorParamItem* item = &g_param_table[i];
+        if (item->can_cmd == can_cmd) {
+            return item;
+        }
+    }
+    return nullptr;
+}
+
+void MotorParser::receiveLoop() {
+    if (socket_fd < 0) {
+        AINFO<<"=======MotorParser::socket_fd======="<<socket_fd;
+        // return {};
+    }
+    struct can_frame frame;
+    while(true) {
+        ssize_t nbytes = 0;
+        // if (ioctl(socket_fd, FIONREAD, &nbytes) == 0) {
+        //     if (nbytes == 0) {
+        //         printf("缓冲区为空\n");
+        //         return {};
+        //     } else {
+        //         printf("缓冲区有 %d 字节数据待处理\n", nbytes);
+        //     }
+        // }
+        AINFO << "before read";
+        nbytes = read(socket_fd, &frame, sizeof(frame));
+        if (nbytes < 0) {
+            AINFO<<"=======MotorParser::nbytes======="<<nbytes;
+            continue;
+        }
+        
+        std::ostringstream oss;
+        oss << "receive data=" << frame.can_id;
+        for (int i = 0; i < frame.can_dlc; i++) {
+            oss << " " << std::hex << static_cast<int>(frame.data[i]);
+        }
+        AINFO << oss.str();
+
+        std::vector<uint8_t> response = std::vector<uint8_t>(frame.data, frame.data + frame.can_dlc);
+        MotorParamItem* item = getItemByCanCmd(frame.data[0]);
+        if (item == nullptr) {
+            AERROR << frame.can_id << "不存在！";
+        }
+        MotorData* motor_data = &motor_data_[frame.can_id];
+        switch (item->type) {
+            case PARAM_TYPE_INT32:
+                {
+                    int32_t data = parseInt32(response);
+                    memcpy(PARAM_PTR(motor_data, item), &data, sizeof(int32_t));
+                    break;
+                }
+            case PARAM_TYPE_DOUBLE:
+                {
+                    double data = static_cast<double>(parseInt32(response));
+                    memcpy(PARAM_PTR(motor_data, item), &data, sizeof(double));
+                    break;
+                }          
+            case PARAM_TYPE_THETA:
+                {
+                    double data = (parseInt32(response) / 100.0 / gearRatio) * 360.0;
+                    memcpy(PARAM_PTR(motor_data, item), &data, sizeof(double));
+                    break;
+                }
+            case PARAM_TYPE_CODERTHETA:
+                {
+                    double data = (parseInt32(response) / 65536.0 / gearRatio) * 360.0;
+                    memcpy(PARAM_PTR(motor_data, item), &data, sizeof(double));
+                    break;
+                }
+            case PARAM_TYPE_STRING:
+                {
+                    int32_t mode = parseInt32(response);
+                    switch (mode) {
+                        case -1: motor_data->mode = "Fault mode";
+                        case 0: motor_data->mode = "Stop mode";
+                        case 1: motor_data->mode = "Current mode";
+                        case 2: motor_data->mode = "Speed mode";
+                        case 3: motor_data->mode = "Position mode";
+                        default: motor_data->mode = "Unknown mode";
+                    }
+                    break;
+                }
+            case PARAM_TYPE_ERROR:
+                {
+                    int32_t status = parseInt32(response);
+                    MotorErrorStatus err;
+                    err.bit0_softwareError = status & (1 << 0);
+                    err.bit1_overVoltage = status & (1 << 1);
+                    err.bit2_underVoltage = status & (1 << 2);
+                    err.bit4_startupError = status & (1 << 4);
+                    err.bit5_speedFeedbackError = status & (1 << 5);
+                    err.bit6_overCurrent = status & (1 << 6);
+                    err.bit7_softwareErrorOther = status & (1 << 7);
+                    err.bit16_encoderCommError = status & (1 << 16);
+                    err.bit17_motorOverTemp = status & (1 << 17);
+                    err.bit18_boardOverTemp = status & (1 << 18);
+                    err.bit19_driverChipError = status & (1 << 19);
+                    memcpy(PARAM_PTR(motor_data, item), &err, sizeof(MotorErrorStatus));
+                    break;
+                }
+            default:
+                break;
+        }
+    };
 }

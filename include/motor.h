@@ -20,12 +20,31 @@
 #include <mutex>
 #include "data_struct.h"
 
+typedef enum {
+    PARAM_TYPE_INT32,
+    PARAM_TYPE_DOUBLE,
+    PARAM_TYPE_STRING,
+    PARAM_TYPE_THETA,
+    PARAM_TYPE_CODERTHETA,
+    PARAM_TYPE_ERROR
+} MotorParamType;
+
+struct MotorParamItem {
+    std::string name;
+    MotorParamType type;
+    size_t offset;
+    uint16_t can_cmd;
+};
+
 // 传感器数据结构体
 class MotorParser {
 private:
     int socket_fd;
     double gearRatio;
     std::mutex mtx_;
+    std::map<int, MotorData> motor_data_;
+    std::thread read_thread_;
+    uint32_t wait_time_; // 等待数据更新时间 ms
     
     // 私有构造函数防止外部实例化
     MotorParser();
@@ -73,6 +92,11 @@ public:
     void flush(int can_id);
     //获取电机数据
     MotorData getMotorData(int can_id);     //获取电机数据
+
+    void queryAll(int can_id);
+    MotorParamItem* getItemByCanCmd(uint16_t can_cmd);
+    void receiveLoop();
+    
 };
 
 #endif // MOTOR_H
