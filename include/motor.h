@@ -44,6 +44,7 @@ private:
     std::mutex mtx_;
     std::map<int, MotorData> motor_data_;
     std::thread read_thread_;
+    std::atomic<bool> running_{ true };
     uint32_t wait_time_; // 等待数据更新时间 ms
     
     // 私有构造函数防止外部实例化
@@ -56,7 +57,7 @@ public:
 
     ~MotorParser();
     //返回值 0:初始化完成   1：创建套接子失败   2：获取CAN接口索引失败   3：绑定CAN套接字失败
-    int init(const std::string& can_channel);
+    int init(const std::string& can_channel, bool is_test=false);
     void send(int can_id, uint8_t cmd, const std::vector<uint8_t>& data);
     std::vector<uint8_t> receive(uint8_t cmd);
 
@@ -96,6 +97,7 @@ public:
     void queryAll(int can_id);
     MotorParamItem* getItemByCanCmd(uint16_t can_cmd);
     void receiveLoop();
+    void stopReceiveThread();
     
 };
 

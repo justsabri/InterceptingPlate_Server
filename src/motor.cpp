@@ -40,7 +40,7 @@ MotorParser::~MotorParser() {
 }
 
 //返回值 0:初始化完成   1：创建套接子失败   2：获取CAN接口索引失败   3：绑定CAN套接字失败
-int MotorParser::init(const std::string& can_channel)
+int MotorParser::init(const std::string& can_channel, bool is_test)
 {   
     // std::lock_guard<std::mutex> lock(mtx_);
     if (socket_fd >= 0) {
@@ -83,6 +83,7 @@ int MotorParser::init(const std::string& can_channel)
     wait_time_ = 1000 / motor_freq * 0.5; // ms
 
     // 5. 启动数据接收线程
+    running_ = !is_test;
     read_thread_ = std::thread(&MotorParser::receiveLoop, this);
 
     return 0;
@@ -304,7 +305,7 @@ double MotorParser::getMotorPosition(int can_id) {
 
 
     double value = (parseInt32(response) / 65536.0 / gearRatio) * 360.0;
-    AERROR<<"=======电机：======="<<can_id<<"=======当前位置value======="<<value;
+    AINFO<<"=======电机：======="<<can_id<<"=======当前位置value======="<<value;
 
     return (parseInt32(response) / 65536.0 / gearRatio) * 360.0;
 }
@@ -385,6 +386,7 @@ void MotorParser::setPositionModeAndTarget(double targetAngle,int can_id) {
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)
     };
+    AINFO << targetAngle << " " << can_id;
     send(can_id, 0x1E, data);
 }
 // 设置电机最大正向加速度
@@ -539,7 +541,7 @@ void MotorParser::receiveLoop() {
         // return {};
     }
     struct can_frame frame;
-    while(true) {
+    while(running_) {
         ssize_t nbytes = 0;
         // if (ioctl(socket_fd, FIONREAD, &nbytes) == 0) {
         //     if (nbytes == 0) {
@@ -629,4 +631,11 @@ void MotorParser::receiveLoop() {
                 break;
         }
     };
+}
+
+void MotorParser::stopReceiveThread() {
+    running_ = false;
+    if (read_thread_.joinable()) {
+        read_thread_.join();
+    }
 }

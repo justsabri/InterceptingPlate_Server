@@ -65,3 +65,24 @@ target_link_libraries(websocket_server PRIVATE
     
     glog::glog
 )
+
+# 测试文件
+add_executable(motor_menu
+    test/test.cpp
+    src/motor.cpp
+)
+target_include_directories(motor_menu PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(motor_menu PRIVATE
+    # Boost组件（需要指定具体库）
+    Boost::system  
+    # 线程库
+    Threads::Threads
+    # JSON库
+    nlohmann_json::nlohmann_json
+    # 4. 添加Boost头文件库（可选但推荐）
+    Boost::headers
+    
+    glog::glog
+)

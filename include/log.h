@@ -97,6 +97,9 @@ static void InitLog(const char* module_name = "MyApp",
   FLAGS_minloglevel = google::INFO;  // 默认输出 INFO 及以上级别的日志
   // 同时输出到终端
   FLAGS_alsologtostderr = 1;  // 同时输出到终端
+  if (module_name == "Test") {
+    FLAGS_alsologtostderr = 0;
+  }
   // 设置终端颜色
   FLAGS_colorlogtostderr = true;  // Set log color
   // 设置单个日志文件的最大大小（以MB为单位）。当日志文件达到此大小时，glog将自动开始写入一个新的日志文件
