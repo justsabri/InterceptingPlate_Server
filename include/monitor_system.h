@@ -135,6 +135,7 @@ private:
         int motor_num;
         std::vector<int> motor;
 		std::vector<double> motor_position_offset;
+		float max_deg;
     } motor_position_offset;
 
 	motor_position_offset motor_position_offset_;

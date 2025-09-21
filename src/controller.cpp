@@ -49,6 +49,10 @@ void Controller::start() {
     }
 
     config_info_.max_ext = config["max_ext"].get<float>();
+    config_info_.ext2deg.a = config["ext2deg"]["a"].get<float>();
+    config_info_.ext2deg.b = config["ext2deg"]["b"].get<float>();
+    config_info_.ext2deg.x_min = config["ext2deg"]["x_min"].get<float>();
+    config_info_.ext2deg.x_max = config["ext2deg"]["x_max"].get<float>();
   
     int motor_freq = config["motor_freq"].get<int>();
 
@@ -555,25 +559,23 @@ double Controller::thetaToY(double theta_deg){
      // 角度转弧度
     double theta_rad = theta_deg * DEG_TO_RAD;
     // 计算参数值
-    double param = (theta_deg - 60.0) * DEG_TO_RAD;
+    double param = (theta_deg + config_info_.ext2deg.x_min) * DEG_TO_RAD;
     // 应用公式 y = 15√3 + 30sin(θ-60°)
-    return 15.0 * SQRT3 + 30.0 * std::sin(param);
+    return config_info_.ext2deg.a + config_info_.ext2deg.b * std::sin(param);
 }
 
 // 反函数：由位移y反推角度θ
 // 参数y: 截流板伸出量
 // 返回：曲柄转角（角度制）
 double Controller::yToTheta(double y) {
-    // 计算基础值
-    const double base = 15.0 * SQRT3;
     // 反函数公式：θ = arcsin((y - 15√3)/30) + 60°
-    double ratio = (y - base) / 30.0;
+    double ratio = (y - config_info_.ext2deg.a) / config_info_.ext2deg.b;
     // 角度结果
-    double result_deg = std::asin(ratio) * RAD_TO_DEG + 60.0;
+    double result_deg = std::asin(ratio) * RAD_TO_DEG - config_info_.ext2deg.x_min;
     if (result_deg < 0) {
         result_deg = 0;
-    } else if (result_deg > 113) {
-        result_deg = 113;
+    } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min) {
+        result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min;
     }
     return result_deg;
 }

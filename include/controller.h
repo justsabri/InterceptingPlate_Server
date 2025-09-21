@@ -71,12 +71,20 @@ private:
         AlgInput in;
     } Alg_Data_Package;
 
+    typedef struct {
+        float a;
+        float b;
+        float x_min;
+        float x_max;
+    } ext2deg_formula1;
+
     typedef struct
     {
         int motor_num;
         std::vector<int> left_motor;
         std::vector<int> right_motor;
         float max_ext;
+        ext2deg_formula1 ext2deg;
     } Config_Info;
 
     EventBus &event_bus_;

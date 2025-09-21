@@ -22,5 +22,11 @@
     "pc_freq" : 1,
     "cb_freq" : 1,
     "max_ext" : 50.0,
-    "altitude" : 0.0
+    "altitude" : 0.0,
+    "ext2deg" : {
+        "a" : 24,
+        "b" : 32.55,
+        "x_min" : -47.5,
+        "x_max" : 52.5
+    }
 }

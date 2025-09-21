@@ -95,6 +95,9 @@ MotorMonitorThread::MotorMonitorThread()
         // 直接从JSON中获取浮点数值
         float offset = motor_info["motor_offset_positon"].get<double>();
         motor_position_offset_.motor_position_offset.push_back(offset);
+
+        // 获取最大转动角度
+        motor_position_offset_.max_deg = config["ext2deg"]["x_max"].get<float>() - config["ext2deg"]["x_min"].get<float>();
     }
 }
 
@@ -261,7 +264,7 @@ void MotorMonitorThread::MonitoringLoop()
             motor_state_[motor_index].plate = data.position;
 
             // 位置监控
-            if (data.position < -1 || data.position > 113.5)
+            if (data.position < -1 || data.position > motor_position_offset_.max_deg + 0.5)
             {
                 if (++error_counters[motor_index][109] >= 5)
                 {
