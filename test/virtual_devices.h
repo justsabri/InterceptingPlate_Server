@@ -310,14 +310,8 @@ public:
 
 private:
     void loadConfig() {
-        std::ifstream file(jsonPath_);
-        if (!file.is_open()) {
-            std::cerr << "Failed to open JSON config: " << jsonPath_ << std::endl;
-            return;
-        }
-
         json j;
-        file >> j;
+        safeReadJson(jsonPath_, j);
 
         std::lock_guard<std::mutex> lock(configMutex_);
         port_ = j.value("port", "/dev/ttyS3");

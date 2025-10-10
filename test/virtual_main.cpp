@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-    VirtualMotor motor("../test/virtual_motor.json", "can0");
+    VirtualMotor motor("can0", "../test/virtual_motor_1.json");
     VirtualImu imu("../test/virtual_imu.json");
 
     std::string motor_action = "启动";
