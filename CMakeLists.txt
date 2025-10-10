@@ -86,3 +86,23 @@ target_link_libraries(motor_menu PRIVATE
     
     glog::glog
 )
+
+# 虚拟设备
+add_executable(virtual_device
+    test/virtual_main.cpp
+)
+target_include_directories(virtual_device PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(virtual_device PRIVATE
+    # Boost组件（需要指定具体库）
+    Boost::system  
+    # 线程库
+    Threads::Threads
+    # JSON库
+    nlohmann_json::nlohmann_json
+    # 4. 添加Boost头文件库（可选但推荐）
+    Boost::headers
+    
+    glog::glog
+)

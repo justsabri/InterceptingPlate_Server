@@ -157,6 +157,11 @@ void MotorMonitorThread::MonitoringLoop()
             MotorData data = motors[i];
             int motor_index = i;
             motor_state_[motor_index].alarm_code = 101;
+            // 电机断连检测
+            if (data.disconnect) {
+                motor_state_[motor_index].alarm_code = 110;
+                continue;
+            }
             // === 异常检测处理 ===
             // 温度异常检测
             if (data.temperature < -10.0 || data.temperature > 60.0)
@@ -470,6 +475,11 @@ void ImuMonitorThread::MonitoringLoop()
             if (!imu_data_queue.Pop(data))
                 break;
             imu_state_.alarm_code = 201;
+            // 断连检测
+            if (data.disconnect) {
+                imu_state_.alarm_code = 207;
+                continue;
+            }
             // === 异常检测处理 ===
             if (data.temperature < -35 || data.temperature > 75)
             {

@@ -13,7 +13,7 @@ int IMURS232::init(const std::string& device, int baud) {
     fd_ = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
     if (fd_ < 0) {
-        AERROR << "open failed"<<std::endl;        
+        AERROR << "open failed"<<std::endl;
         return 1;   
     }
 
@@ -62,6 +62,17 @@ int IMURS232::init(const std::string& device, int baud) {
 
     // 清空缓冲区
     tcflush(fd_, TCIOFLUSH);
+
+    // 初始化看门狗
+    rs232_heartbeat_ = std::make_unique<Heartbeat>(500, 2000);
+    feed_count = 0;
+    rs232_heartbeat_->setTimeoutCallback([this](){
+        heartbeatTimeout();
+    });
+    rs232_heartbeat_->setRecoverCallback([this](){
+        heartbeatRecover();
+    });
+
     return 0;
 }
 //返回值 0:读取到完整数据  1：读取失败  2:未读取到完整数据包
@@ -100,6 +111,12 @@ int IMURS232::readData() {
     }
     packet.insert(packet.end(), buffer, buffer + sizeof(buffer)/sizeof(buffer[0]));
     parserData(packet.data());
+
+    // 喂狗
+    if (feed_count++ == 10) {
+        feed_count = 0;
+        rs232_heartbeat_->feed();
+    }
     return 0;
 }
 //获取解析后的数据
@@ -204,7 +221,9 @@ uint32_t IMURS232::parseUint32(const uint8_t *data) {
     value |= static_cast<uint8_t>(data[3]) << 24; // 高位字节
     return value;
 }
-int32_t IMURS232::parseInt32(const uint8_t *data) {
+
+int32_t IMURS232::parseInt32(const uint8_t *data)
+{
     int32_t value = 0;
     value |= static_cast<uint8_t>(data[0]) << 0;  // 低位字节
     value |= static_cast<uint8_t>(data[1]) << 8;
@@ -266,4 +285,12 @@ void IMURS232::parserData(uint8_t *data){  //参照pdf设置缩放值
     imu_data.imu_status_key = parseUint8(data + 55);
     imu_data.imu_work_status = parseUint8(data + 56);
     uint32_t crc32 = parseUint32(data + 57);
+}
+
+void IMURS232::heartbeatTimeout() {
+    imu_data.disconnect = true;
+}
+
+void IMURS232::heartbeatRecover() {
+    imu_data.disconnect = false;
 }

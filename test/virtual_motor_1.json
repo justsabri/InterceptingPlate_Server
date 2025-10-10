@@ -1,0 +1,11 @@
+{
+	"id" : "0x001",
+	"disconnect" : true,
+	"protocol" : {
+		"0A" : {
+			"discribe" : "status",
+			"type": "fixed",
+			"value": 15
+		}
+	}
+}

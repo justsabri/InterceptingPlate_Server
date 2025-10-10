@@ -16,7 +16,7 @@ struct ImuData
   uint32_t gps_millisecond = 0; // GPS周内秒
   uint8_t GNSS_staus = 0;       // GNSS定位状态 0：不可用或无效  1：单点定位  2：差分定位  3：GPS PPS模式
                           // 4：RTK固定解 5：RTK浮点解 6：惯导模式 7：手动输入模式  8：模拟器模式
-
+  bool disconnect = false;
   // 姿态数据
   double yaw = 2.5;           // 艏向角
   double pitch = 0.0;         // 纵倾角
@@ -90,7 +90,9 @@ struct MotorData {
     double max_forward_position;    //最大正向位置
     double min_reverse_position;    //最小负向位置
     double temperature; //电机温度
+    bool disconnect = false; // 电机断开
 };
+
 //工控板参数结构体
 struct LinuxPcData {
   double temperature;      // 温度(℃) [-20, 60]

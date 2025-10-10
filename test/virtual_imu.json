@@ -1,0 +1,137 @@
+{
+  "port": "/dev/ttyS1",
+  "baud": 115200,
+  "frequency_hz": 10,
+  "loop_messages": true,
+  "messages": [
+    {
+      "describe" : "gps_millisecond",
+      "data": 1234,
+      "length": 4
+    },
+    {
+      "describe" : "gps_week",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "latitude",
+      "data": 1234,
+      "length": 4
+    },
+    {
+      "describe" : "longitude",
+      "data": 1234,
+      "length": 4
+    },
+    {
+      "describe" : "altitude",
+      "data": 1234,
+      "length": 4
+    },
+    {
+      "describe" : "north_velocity",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "east_velocity",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "down_velocity",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "roll",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "pitch",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "yaw",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "acc_x",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "acc_y",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "acc_z",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "gyro_x",
+      "data": 1234,
+      "length": 2
+    },
+    {
+      "describe" : "gyro_y",
+      "data": 1234,
+      "length": 2
+    }
+    ,
+    {
+      "describe" : "gyro_z",
+      "data": 1234,
+      "length": 2
+    }
+    ,
+    {
+      "describe" : "heading",
+      "data": 1234,
+      "length": 2
+    }
+    ,
+    {
+      "describe" : "antenna_type",
+      "data": 1234,
+      "length": 1
+    }
+    ,
+    {
+      "describe" : "temperature",
+      "data": 1234,
+      "length": 1
+    },
+    {
+      "describe" : "satellite_num",
+      "data": 1234,
+      "length": 1
+    },
+    {
+      "describe" : "GNSS_staus",
+      "data": 1234,
+      "length": 1
+    },
+    {
+      "describe" : "posture_status",
+      "data": 1234,
+      "length": 1
+    },
+    {
+      "describe" : "imu_status_key",
+      "data": 1234,
+      "length": 1
+    },
+    {
+      "describe" : "imu_work_status",
+      "data": 1234,
+      "length": 1
+    }
+  ]
+}

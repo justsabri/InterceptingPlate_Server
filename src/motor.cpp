@@ -86,6 +86,18 @@ int MotorParser::init(const std::string& can_channel, bool is_test)
     running_ = !is_test;
     read_thread_ = std::thread(&MotorParser::receiveLoop, this);
 
+    // 6.初始化看门狗
+    for (const auto& [motor_id, motor_info] : config["motors"].items()) {
+        int id = std::stoi(motor_id,nullptr,16);
+        motor_heartbeat_.emplace(id, std::make_unique<Heartbeat>(500, 2000));
+        motor_heartbeat_[id]->setTimeoutCallback([this, id](){
+            heartbeatTimeout(id);
+        });
+        motor_heartbeat_[id]->setRecoverCallback([this, id](){
+            heartbeatRecover(id);
+        });
+    }
+
     return 0;
 }
 
@@ -565,6 +577,11 @@ void MotorParser::receiveLoop() {
         }
         AINFO << oss.str();
 
+        // 喂狗
+        if (frame.data[0] == 0x0A) {
+            motor_heartbeat_[frame.can_id]->feed();
+        }
+
         std::vector<uint8_t> response = std::vector<uint8_t>(frame.data, frame.data + frame.can_dlc);
         MotorParamItem* item = getItemByCanCmd(frame.data[0]);
         if (item == nullptr) {
@@ -638,4 +655,14 @@ void MotorParser::stopReceiveThread() {
     if (read_thread_.joinable()) {
         read_thread_.join();
     }
+}
+
+void MotorParser::heartbeatTimeout(int can_id) {
+    MotorData* motor_data = &motor_data_[can_id];
+    motor_data->disconnect = true;
+}
+
+void MotorParser::heartbeatRecover(int can_id) {
+    MotorData* motor_data = &motor_data_[can_id];
+    motor_data->disconnect = false;
 }

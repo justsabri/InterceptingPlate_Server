@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <mutex>
 #include "data_struct.h"
+#include "HeartBeat.h"
 
 typedef enum {
     PARAM_TYPE_INT32,
@@ -46,6 +47,9 @@ private:
     std::thread read_thread_;
     std::atomic<bool> running_{ true };
     uint32_t wait_time_; // 等待数据更新时间 ms
+
+    // heartbeat
+    std::map<int, std::unique_ptr<Heartbeat>> motor_heartbeat_;
     
     // 私有构造函数防止外部实例化
     MotorParser();
@@ -98,7 +102,8 @@ public:
     MotorParamItem* getItemByCanCmd(uint16_t can_cmd);
     void receiveLoop();
     void stopReceiveThread();
-    
+    void heartbeatTimeout(int can_id);
+    void heartbeatRecover(int can_id);
 };
 
 #endif // MOTOR_H

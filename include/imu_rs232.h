@@ -6,6 +6,7 @@
 #include <iomanip> 
 #include <vector>
 #include "data_struct.h"
+#include "HeartBeat.h"
 //RS232-1    /dev/ttyS8
 //RS232-2    /dev/ttyS9
 //RS232-3    /dev/ttyS7
@@ -41,6 +42,8 @@ private:
     bool header_found = false;  //帧头获取标志
     uint8_t buffer[PACKET_SIZE];  // 单字节缓冲区
     int fd_ = -1;         // 文件描述符
+    std::unique_ptr<Heartbeat> rs232_heartbeat_;
+    int feed_count;
     //解析数据
     void parserData(uint8_t *data);
     //解析辅助函数
@@ -49,4 +52,6 @@ private:
     int16_t parseInt16(const uint8_t *data);
     int32_t parseInt32(const uint8_t *data);
     uint32_t parseUint32(const uint8_t *ata);
+    void heartbeatTimeout();
+    void heartbeatRecover();
 };
