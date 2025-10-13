@@ -96,7 +96,7 @@ MotorMonitorThread::MotorMonitorThread()
         float offset = motor_info["motor_offset_positon"].get<double>();
         motor_position_offset_.motor_position_offset.push_back(offset);
 
-        // 获取最大转动角度
+         // 获取最大转动角度
         motor_position_offset_.max_deg = config["ext2deg"]["x_max"].get<float>() - config["ext2deg"]["x_min"].get<float>();
     }
 }
@@ -369,7 +369,7 @@ void ImuMonitorThread::MonitoringLoop()
             test_time_count++;
             int current_cycle = test_time_count / time_set;
             //=================================================================================
-            int test_mode = 2; // 1:航速最优  2:协调转弯  3:纵倾/摇最优  4:横倾/摇最优
+            int test_mode = 1; // 1:航速最优  2:协调转弯  3:纵倾/摇最优  4:横倾/摇最优
             // 20250816 20250821
             switch (test_mode)
             {
@@ -380,7 +380,7 @@ void ImuMonitorThread::MonitoringLoop()
                 在不同初始航速下，记录截流板伸缩达到的最佳航速对应的伸缩量。以航速为输入，两侧截流板最佳伸缩量为输出。
                 从5-45kn，每间隔5kn，作为航速输入，观察截流板的伸缩量。最终的伸缩量，从小到大再变小，其中最大值不超过安全阈值。
                 */
-                speed_kn = 15.0; // 模拟的航速  节
+                speed_kn = 10.0; // 模拟的航速  节
                 break;
             }
             case 2: // 2:协调转弯

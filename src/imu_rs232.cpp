@@ -14,7 +14,7 @@ int IMURS232::init(const std::string& device, int baud) {
 
     if (fd_ < 0) {
         AERROR << "open failed"<<std::endl;
-        return 1;   
+        return 1;
     }
 
     // 获取当前串口配置
@@ -117,6 +117,7 @@ int IMURS232::readData() {
         feed_count = 0;
         rs232_heartbeat_->feed();
     }
+
     return 0;
 }
 //获取解析后的数据
@@ -221,9 +222,7 @@ uint32_t IMURS232::parseUint32(const uint8_t *data) {
     value |= static_cast<uint8_t>(data[3]) << 24; // 高位字节
     return value;
 }
-
-int32_t IMURS232::parseInt32(const uint8_t *data)
-{
+int32_t IMURS232::parseInt32(const uint8_t *data) {
     int32_t value = 0;
     value |= static_cast<uint8_t>(data[0]) << 0;  // 低位字节
     value |= static_cast<uint8_t>(data[1]) << 8;

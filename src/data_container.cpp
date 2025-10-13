@@ -27,8 +27,9 @@ InitDeviceStatus DataContainer::initDevice(void){
       //清除电机错误状态并将电机恢复至0位
     for (size_t i = 0; i < motor_config_.motor_num; i++)
     {
-        MotorParser::getInstance().send(motor_config_.motor[i],0x0B,{});
-        MotorParser::getInstance().setPositionModeAndTarget(0,motor_config_.motor[i]);
+        
+        MotorParser::getInstance().sendMotorCommand(motor_config_.motor[i],0x0B,{}); //清除电机错误状态
+        MotorParser::getInstance().setPositionModeAndTarget(0,motor_config_.motor[i]);//电机恢复0位
         // MotorParser::getInstance().setMaxForwardPosition(113,motor_config_.motor[i]);
         // MotorParser::getInstance().flush(motor_config_.motor[i]);
     }
@@ -53,10 +54,6 @@ int DataContainer::refreshMotorData(void) {
     {
         motor_data_[i] = MotorParser::getInstance().getMotorData(motor_config_.motor[i]);
     }
-    // motor_data_[0] = MotorParser::getInstance().getMotorData(0x001);
-    // motor_data_[1] = MotorParser::getInstance().getMotorData(0x002);
-    // motor_data_[2] = MotorParser::getInstance().getMotorData(0x003);
-    // motor_data_[3] = MotorParser::getInstance().getMotorData(0x004);
     std::lock_guard<std::mutex> lock(motor_mutex_);
     if (callback_motor) {
         callback_motor(motor_data_);
@@ -91,39 +88,42 @@ void DataContainer::refreshPcData(void){
 // 添加线程执行函数
 void DataContainer::motor_thread() {
     pthread_setname_np(pthread_self(), "motor_t"); // 设置线程名
-    using namespace std::chrono;
-    auto interval = microseconds(1000000 / motor_freq_hz_);
-    auto next_run = steady_clock::now();
+    auto interval = std::chrono::milliseconds(1000 / motor_freq_hz_);
+    auto next_run = std::chrono::steady_clock::now();
 
     while (running_) {
+        // 获取开始时间点
+         auto start = std::chrono::steady_clock::now();
         refreshMotorData();
-    
+        // 获取结束时间点
+        auto end = std::chrono::steady_clock::now();
+        // 计算时间间隔（以毫秒为单位）
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // 输出时间间隔
+        AINFO << "实际耗时: " << duration_ms.count() << " 毫秒";
+        AINFO << "设定间隔: " <<interval.count() << " 毫秒";
         next_run += interval;
         std::this_thread::sleep_until(next_run);
     }
 }
 
 void DataContainer::imu_thread() {
-    using namespace std::chrono;
-    auto interval = microseconds(1000000 / imu_freq_hz_);
-    auto next_run = steady_clock::now();
+    auto interval = std::chrono::milliseconds(1000 / imu_freq_hz_);
+    auto next_run = std::chrono::steady_clock::now();
 
     while (running_) {
         refreshImuData();
-        
         next_run += interval;
         std::this_thread::sleep_until(next_run);
     }
 }
 
 void DataContainer::pc_thread() {
-    using namespace std::chrono;
-    auto interval = microseconds(1000000 / pc_freq_hz_);
-    auto next_run = steady_clock::now();
+    auto interval = std::chrono::milliseconds(1000 / pc_freq_hz_);
+    auto next_run = std::chrono::steady_clock::now();
 
     while (running_) {
         refreshPcData();
-        
         next_run += interval;
         std::this_thread::sleep_until(next_run);
     }

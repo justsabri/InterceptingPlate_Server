@@ -80,6 +80,7 @@ static void InitLog(const char* module_name = "MyApp",
   namespace fs = std::filesystem;
 
   fs::path log_path = fs::current_path() / "log";
+
   // 初始化glog
   google::InitGoogleLogging(module_name);
   google::InstallFailureSignalHandler();  // 注册崩溃信号处理程序

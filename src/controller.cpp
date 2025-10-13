@@ -81,7 +81,6 @@ void Controller::start() {
     alg_processor_->set_callback(alg_cb);
    
 
-    AINFO << "22";
    
     // 初始化数据中心回调函数
     DataCenter::instance().initDataContainer(motor_freq, imu_freq, pc_freq);
@@ -96,7 +95,7 @@ void Controller::start() {
          AWARN<<"传入惯导数据=====================";
         tryProcess();    
     };
-     AINFO << "23";
+  
      // 初始化电机执行
     motor_ctrl_ = std::make_unique<MotorController>();
     // motor_ctrl_->init_motor_reverse_position();
@@ -106,13 +105,13 @@ void Controller::start() {
         monitor_pack_ = data;
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
     };
-    AINFO << "24";
+
     monitor_system_ = std::make_unique<MonitoringSystem>();
     monitor_system_->init(cb_freq, state_cb);
-    AINFO << "25";
+ 
     monitor_system_->StartAll();
-    AINFO << "26";
-    // 启动一个处理线程
+   
+     // 启动一个处理线程
     alg_worker_= std::thread(&AlgProcessor::process_data, alg_processor_.get());
 }
 
@@ -187,6 +186,15 @@ void Controller::handle_message(const json& j) {
                     auto_mode_ = 0;
                 } else if (mode != auto_mode_) {
                     auto_mode_ = mode;
+                    // 清除自动模式的资源
+                    DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+                    DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+                    // 控制 moter_ctrl执行对应命令
+                    ctrl_motor(0, 0);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1300));
+                    // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
+                    DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
+                    DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
                 }
    
             } else {
@@ -305,155 +313,140 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
 
 //-------------------------------------------------------------------------------
 // 纵倾/摇最优  模拟角度  根据伸出量  来变化 20250822
-double simulation_angle(int speed, double x) {
-    // 根据航速和等效截流板伸缩量计算船舶角度
-    // 参数 speed: 航速（单位knots）
-    // 参数 x: 等效截流板伸缩量（单位mm）
-    // 返回: 船舶角度（单位度）
-    
-    double a = 0.0, b = 0.0, c = 0.0, d = 0.0, e = 0.0, f = 0.0;
 
-    if (speed == 5) {
-        a = -2E-07;
-        b = 2E-05;
-        c = -0.001;
-        d = 0.0195;
-        e = -1.46;
-        f = 0;
+// 最优值为-2°，对应伸缩量为30mm
+double simulation_angle(double x) {
+    if (x < 0 || x > 50) {
+        return 0; // Return NaN if x is out of range
+    } else if (x <= 10) {
+        return -10 + 0.7 * x;
+    } else if (x <= 20) {
+        return 2 - 0.5 * x;
+    } else if (x <= 30) {
+        return 0.6 * x - 20;
+    } else {
+        return 7 - 0.3 * x;
     }
-    else if (speed == 10) {
-        a = -1E-07;
-        b = 1E-05;
-        c = -0.0005;
-        d = 0.0139;
-        e = -2.06;
-        f = 0;
-    }
-    else if (speed == 15) {
-        a = -0.0036;
-        b = -0.1279;
-        c = 0.778;
-        d = -0.3791;
-        e = -4.436;
-        f = 0;
-    }
-    else if (speed == 20) {
-        a = -2E-07;
-        b = 2E-05;
-        c = -0.001;
-        d = 0.0195;
-        e = -1.46;
-        f = 0;
-    }
-    else if (speed == 25) {
-        a = -4E-07;
-        b = 5E-05;
-        c = -0.0026;
-        d = 0.1199;
-        e = -4.86;
-        f = 0;
-    }
-    else if (speed == 30) {
-        a = 1E-07;
-        b = -1E-05;
-        c = -0.0006;
-        d = 0.1309;
-        e = -5.26;
-        f = 0;
-    }
-    else if (speed == 35) {
-        a = -2E-06;
-        b = 0.0002;
-        c = -0.0058;
-        d = 0.1466;
-        e = -4.84;
-        f = 0;
-    }
-    else if (speed == 40) {
-        a = -3E-06;
-        b = 0.0003;
-        c = -0.0086;
-        d = 0.1689;
-        e = -4.24;
-        f = 0;
-    }
-    else if (speed == 45) {
-        a = -3E-06;
-        b = 0.0003;
-        c = -0.0085;
-        d = 0.1493;
-        e = -3.61;
-        f = 0;
-    }
-    else if (speed == 50) {
-        a = -2E-06;
-        b = 0.0002;
-        c = -0.0063;
-        d = 0.1437;
-        e = -3.16;
-        f = 0;
-    }
-
-    // 计算船舶角度
-    double x2 = x * x;
-    double x3 = x2 * x;
-    double x4 = x3 * x;
-    double x5 = x4 * x;
-    double z = (a * x5 + b * x4 + c * x3 + d * x2 + e * x + f);
-    return z;
 }
-// double simulation_angle(int speed, double x)
-// {
-//     // """
+
+
+// // 最优值为-2°，对应伸缩量为15mm
+// double simulation_angle(double x) {
+//     if (x < 0 || x > 50) {
+//         return 0;
+//     } else if (x <= 15) {
+//         // 从(0,-11)到(15,-2)的线性插值
+//         return -11 + 0.6 * x; // 斜率 = (-2 - (-11)) / (15 - 0) = 9/15 = 0.6
+//     } else if (x <= 20) {
+//         // 从(15,-2)到(20,-5)的线性插值
+//         return -2 - 0.6 * (x - 15); // 斜率 = (-5 - (-2)) / (20 - 15) = -3/5 = -0.6
+//     } else if (x <= 30) {
+//         // 从(20,-5)到(30,-3)的线性插值
+//         return -5 + 0.2 * (x - 20); // 斜率 = (-3 - (-5)) / (30 - 20) = 2/10 = 0.2
+//     } else {
+//         // 从(30,-3)到(50,-9)的线性插值
+//         return -3 - 0.3 * (x - 30); // 斜率 = (-9 - (-3)) / (50 - 30) = -6/20 = -0.3
+//     }
+// }
+
+
+
+
+// double simulation_angle(int speed, double x) {
 //     // 根据航速和等效截流板伸缩量计算船舶角度
-//     // :param speed: 航速（单位knots）
-//     // :param x: 等效截流板伸缩量（单位mm）
-//     // :return: 船舶角度（单位度）
-//     // """
-//     // 获取当前航速对应的多项式系数
-//     double a, b, c, d, e = 0.0;
-//     if (5 == speed)
-//     {
-//         a, b, c, d, e = -2E-07, 2E-05, -0.001, 0.0195, -1.46;
+//     // 参数 speed: 航速（单位knots）
+//     // 参数 x: 等效截流板伸缩量（单位mm）
+//     // 返回: 船舶角度（单位度）
+    
+//     double a = 0.0, b = 0.0, c = 0.0, d = 0.0, e = 0.0, f = 0.0;
+
+//     if (speed == 5) {
+//         a = -2E-07;
+//         b = 2E-05;
+//         c = -0.001;
+//         d = 0.0195;
+//         e = -1.46;
+//         f = 0;
 //     }
-//     if (10 == speed)
-//     {
-//         a, b, c, d, e = -1E-07, 1E-05, -0.0005, 0.0139, -2.06;
+//     else if (speed == 10) {
+//         a = -1E-07;
+//         b = 1E-05;
+//         c = -0.0005;
+//         d = 0.0139;
+//         e = -2.06;
+//         f = 0;
 //     }
-//     if (15 == speed)
-//     {
-//         a, b, c, d, e = -2E-07, 2E-05, -0.0008, 0.0385, -4.46;
+//     else if (speed == 15) {
+//         a = -0.0036;
+//         b = -0.1279;
+//         c = 0.778;
+//         d = -0.3791;
+//         e = -4.436;
+//         f = 0;
 //     }
-//     if (20 == speed)
-//     {
-//         a, b, c, d, e = -2E-07, 2E-05, -0.001, 0.0195, -1.46;
+//     else if (speed == 20) {
+//         a = -2E-07;
+//         b = 2E-05;
+//         c = -0.001;
+//         d = 0.0195;
+//         e = -1.46;
+//         f = 0;
 //     }
-//     if (25 == speed)
-//     {
-//         a, b, c, d, e = -4E-07, 5E-05, -0.0026, 0.1199, -4.86;
+//     else if (speed == 25) {
+//         a = -4E-07;
+//         b = 5E-05;
+//         c = -0.0026;
+//         d = 0.1199;
+//         e = -4.86;
+//         f = 0;
 //     }
-//     if (30 == speed)
-//     {
-//         a, b, c, d, e = 1E-07, -1E-05, -0.0006, 0.1309, -5.26;
+//     else if (speed == 30) {
+//         a = 1E-07;
+//         b = -1E-05;
+//         c = -0.0006;
+//         d = 0.1309;
+//         e = -5.26;
+//         f = 0;
 //     }
-//     if (35 == speed)
-//     {
-//         a, b, c, d, e = -2E-06, 0.0002, -0.0058, 0.1466, -4.84;
+//     else if (speed == 35) {
+//         a = -2E-06;
+//         b = 0.0002;
+//         c = -0.0058;
+//         d = 0.1466;
+//         e = -4.84;
+//         f = 0;
 //     }
-//     if (40 == speed)
-//     {
-//         a, b, c, d, e = -3E-06, 0.0003, -0.0086, 0.1689, -4.24;
+//     else if (speed == 40) {
+//         a = -3E-06;
+//         b = 0.0003;
+//         c = -0.0086;
+//         d = 0.1689;
+//         e = -4.24;
+//         f = 0;
 //     }
-//     if (45 == speed)
-//     {
-//         a, b, c, d, e = -3E-06, 0.0003, -0.0085, 0.1493, -3.61;
+//     else if (speed == 45) {
+//         a = -3E-06;
+//         b = 0.0003;
+//         c = -0.0085;
+//         d = 0.1493;
+//         e = -3.61;
+//         f = 0;
 //     }
-//     if (50 == speed)
-//     {
-//         a, b, c, d, e = -2E-06, 0.0002, -0.0063, 0.1437, -3.16;
+//     else if (speed == 50) {
+//         a = -2E-06;
+//         b = 0.0002;
+//         c = -0.0063;
+//         d = 0.1437;
+//         e = -3.16;
+//         f = 0;
 //     }
-//     //     z = -(a * x * *4 + b * x * *3 + c * x * *2 + d * x + e) #计算船舶角度 return z
-//     double z = -(a * x * *4 + b * x * *3 + c * x * *2 + d * x + e);
+
+//     // 计算船舶角度
+//     double x2 = x * x;
+//     double x3 = x2 * x;
+//     double x4 = x3 * x;
+//     double x5 = x4 * x;
+//     double z = (a * x5 + b * x4 + c * x3 + d * x2 + e * x + f);
 //     return z;
 // }
 //-------------------------------------------------------------------------------
@@ -477,7 +470,7 @@ void Controller::tryProcess()
 
         //---------------------1、航速最优测试，只变航速-------------------------------------
         // 测试控制算法
-        speed = 25.0; // 模拟的航速  节
+        // speed = 10.0; // 模拟的航速  节
         // 20250822 田鸿宇 新算法用到  船舶  舵角参数
         // 船舶当前舵角
         double current_rudder = -15.0;
@@ -502,14 +495,13 @@ void Controller::tryProcess()
         // 纵倾/摇最优
         int speed_int = (int)speed;
         // 左侧伸出量
-        alg_package_.in.pitch_current = simulation_angle(speed_int,
-            std::max(alg_package_.in.left_current, alg_package_.in.right_current));
+        alg_package_.in.pitch_current = simulation_angle(std::max(alg_package_.in.left_current, alg_package_.in.right_current));
         //---------------------3、横倾/摇最优数据--------------------------------------
         // 将最大值赋值给函数
         if (alg_package_.in.left_current > alg_package_.in.right_current)
-            alg_package_.in.heel_current  = simulation_angle(speed_int, alg_package_.in.left_current);
+            alg_package_.in.heel_current  = simulation_angle(alg_package_.in.left_current);
         else
-         alg_package_.in.heel_current  = simulation_angle(speed_int, alg_package_.in.right_current);
+         alg_package_.in.heel_current  = simulation_angle(alg_package_.in.right_current);
 
         if (alg_package_.in.heel_current.has_value()) {
         AINFO << "========横摇数据：" << alg_package_.in.heel_current.value() << "=============";
@@ -561,7 +553,9 @@ double Controller::thetaToY(double theta_deg){
     // 计算参数值
     double param = (theta_deg + config_info_.ext2deg.x_min) * DEG_TO_RAD;
     // 应用公式 y = 15√3 + 30sin(θ-60°)
-    return config_info_.ext2deg.a + config_info_.ext2deg.b * std::sin(param);
+    double result = config_info_.ext2deg.a + config_info_.ext2deg.b * std::sin(param);
+    AINFO << "t2y " << theta_deg << " - " << result;
+    return result;
 }
 
 // 反函数：由位移y反推角度θ
@@ -577,5 +571,6 @@ double Controller::yToTheta(double y) {
     } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min) {
         result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min;
     }
+    AINFO << "y2t " << y << " - " << result_deg;
     return result_deg;
 }

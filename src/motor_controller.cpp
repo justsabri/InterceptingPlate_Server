@@ -77,9 +77,3 @@ void MotorController::control_motor(Command cmd, int can_id, std::variant<double
         }
     }
 
-
-// void MotorController::init_motor_reverse_position(){
-//     //设置最大正向位置，最小反向位置
-    // min_reverse_position = 100000;
-    // max_forward_positon = min_reverse_position + 2202738;
-// }

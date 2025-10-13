@@ -117,7 +117,8 @@ void show_motor_menu(Motor& motor) {
                 std::cout << "输入数据不合法，请重新选择后输入纯数字\n";
                 continue;
             }
-            MotorParser::getInstance().setMaxForwardPosition(theta, motor.id);    
+            MotorParser::getInstance().setMaxForwardPosition(theta, motor.id);
+            MotorParser::getInstance().flush(motor.id);    
         } else if (input == "8") {
             std::cout << "请输入目标角度：\n";
             std::string s;
@@ -128,6 +129,7 @@ void show_motor_menu(Motor& motor) {
                 continue;
             }
             MotorParser::getInstance().setMinReversePosition(theta, motor.id);
+            MotorParser::getInstance().flush(motor.id);
         } else if (input == "9") {
             std::cout << "重新获取电机状态...\n";
             continue;     

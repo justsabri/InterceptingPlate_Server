@@ -92,7 +92,6 @@ struct MotorData {
     double temperature; //电机温度
     bool disconnect = false; // 电机断开
 };
-
 //工控板参数结构体
 struct LinuxPcData {
   double temperature;      // 温度(℃) [-20, 60]
