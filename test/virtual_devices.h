@@ -20,14 +20,14 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/stat.h>  // 获取文件信息
-#include "log.h"
+// #include "log.h"
 
 using json = nlohmann::json;
 
 struct ProtocolItem {
     std::string describe;
-    std::string type; // "fixed", "random" 等
-    float value;      // 默认存 float
+    std::string type; // 数据单位转换
+    int32_t value; 
 };
 
 class JsonHelper {
@@ -177,8 +177,15 @@ private:
                 ProtocolItem pi;
                 pi.describe = item.value("discribe", "");
                 pi.type     = item.value("type", "fixed");
-                // 强制解析成 float
-                pi.value    = item.value("value", 0.0f);
+                pi.value    = item.value("value", 0);
+                std::cout << pi.describe << " value " << pi.value << std::endl;
+                if (pi.type == "degree") {
+                    pi.value = (pi.value / 360.0) * 121 * 65536.0;
+                    std::cout << pi.describe << " convert value " << pi.value << std::endl;
+                } else if (pi.type == "degree_per_s") {
+                    pi.value = (pi.value * 121 * 100) / 360.0;
+                    std::cout << pi.describe << " convert value " << pi.value << std::endl;
+                }
                 // TODO: 清空 protocol_ 后重新添加
                 protocol_[cmd] = pi;
             }

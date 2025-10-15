@@ -144,7 +144,7 @@ void MotorMonitorThread::MonitoringLoop()
     pthread_setname_np(pthread_self(), "motor_mt"); // 设置线程名
     // 为每个电机状态添加计数器
     std::map<int, std::map<int, int>> error_counters; // <电机索引, <错误类型, 计数>>
-
+    auto start_time = std::chrono::steady_clock::now();
     while (running_)
     {
         std::map<int, MotorData> motors;
@@ -164,9 +164,9 @@ void MotorMonitorThread::MonitoringLoop()
             }
             // === 异常检测处理 ===
             // 温度异常检测
-            if (data.temperature < -10.0 || data.temperature > 60.0)
+            if (data.temperature > 68.0)
             {
-                if (++error_counters[motor_index][102] >= 5)
+                if (++error_counters[motor_index][102] >= 1)
                 { // 连续5次检测到异常
                     AWARN << "电机" << motor_index << "温度异常: "
                           << data.temperature << "℃" << std::endl;
@@ -182,7 +182,7 @@ void MotorMonitorThread::MonitoringLoop()
             // 状态异常检测
             if (data.status.has_error())
             {
-                if (++error_counters[motor_index][103] >= 5)
+                if (++error_counters[motor_index][103] >= 1)
                 {
                     AWARN << "电机" << motor_index << "状态异常" << std::endl;
                     std::lock_guard<std::mutex> lock(status_mutex_);
@@ -195,9 +195,9 @@ void MotorMonitorThread::MonitoringLoop()
             }
 
             // 电压异常检测
-            if (data.voltage < 24.0 || data.voltage > 32.0)
+            if (data.voltage < 45.0 || data.voltage > 50.0)
             {
-                if (++error_counters[motor_index][104] >= 5)
+                if (++error_counters[motor_index][104] >= 3)
                 {
                     AWARN << "电机" << motor_index << "电压异常: "
                           << data.voltage << "V" << std::endl;
@@ -211,9 +211,9 @@ void MotorMonitorThread::MonitoringLoop()
             }
 
             // 电流超限检测
-            if (data.current > 3500.0)
+            if (data.current > 6250.0)
             {
-                if (++error_counters[motor_index][105] >= 5)
+                if (++error_counters[motor_index][105] >= 1)
                 {
                     AWARN << "电机" << motor_index << "电流过大: "
                           << data.current << "mA" << std::endl;
@@ -227,9 +227,9 @@ void MotorMonitorThread::MonitoringLoop()
             }
 
             // 电池电压异常检测
-            if (data.encoder_battery_voltage >= 3.0 && data.encoder_battery_voltage <= 3.2)
+            if (data.encoder_battery_voltage >= 3.2 && data.encoder_battery_voltage <= 3.6)
             {
-                if (++error_counters[motor_index][106] >= 5)
+                if (++error_counters[motor_index][106] >= 1)
                 {
                     AWARN << "电机" << motor_index << "电池电压异常: "
                           << data.encoder_battery_voltage << "V" << std::endl;
@@ -237,9 +237,9 @@ void MotorMonitorThread::MonitoringLoop()
                     motor_state_[motor_index].alarm_code = 106;
                 }
             }
-            else if (data.encoder_battery_voltage < 3.0)
+            else if (data.encoder_battery_voltage < 3.2)
             {
-                if (++error_counters[motor_index][107] >= 5)
+                if (++error_counters[motor_index][107] >= 1)
                 {
                     AWARN << "电机" << motor_index << "电池电压异常: "
                           << data.encoder_battery_voltage << "V" << std::endl;
@@ -268,20 +268,41 @@ void MotorMonitorThread::MonitoringLoop()
             // }
             motor_state_[motor_index].plate = data.position;
 
-            // 位置监控
-            if (data.position < -1 || data.position > motor_position_offset_.max_deg + 0.5)
-            {
-                if (++error_counters[motor_index][109] >= 5)
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - start_time).count();
+
+            if (elapsed < 10) {
+                // 开机10s内位置监控
+                if (data.position > 2 && data.position > motor_position_offset_.max_deg)
                 {
-                    AWARN << "电机" << motor_index << "位置超限: "
-                          << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    motor_state_[motor_index].alarm_code = 109;
+                    if (++error_counters[motor_index][108] >= 1)
+                    {
+                        AWARN << "电机" << motor_index << "位置超限: "
+                            << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
+                        std::lock_guard<std::mutex> lock(status_mutex_);
+                        motor_state_[motor_index].alarm_code = 108;
+                    }
                 }
-            }
-            else
-            {
-                error_counters[motor_index][109] = 0;
+                else
+                {
+                    error_counters[motor_index][108] = 0;
+                }
+            } else {
+                // 开机10s后位置监控
+                if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
+                {
+                    if (++error_counters[motor_index][109] >= 1)
+                    {
+                        AWARN << "电机" << motor_index << "位置超限: "
+                            << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
+                        std::lock_guard<std::mutex> lock(status_mutex_);
+                        motor_state_[motor_index].alarm_code = 109;
+                    }
+                }
+                else
+                {
+                    error_counters[motor_index][109] = 0;
+                }
             }
         }
     }
@@ -347,8 +368,13 @@ void ImuMonitorThread::MonitoringLoop()
             if (!imu_data_queue.Pop(data))
                 break;
             imu_state_.alarm_code = 201; // 这个代表 惯导正常
+            // 惯导断连检测
+            if (data.disconnect) {
+                imu_state_.alarm_code = 209;
+                continue;
+            }
             // === 异常检测处理 ===
-            if (data.temperature < -35.0 || data.temperature > 75.0)
+            if (data.temperature > 68.0)
             {
                 AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -477,11 +503,11 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.alarm_code = 201;
             // 断连检测
             if (data.disconnect) {
-                imu_state_.alarm_code = 207;
+                imu_state_.alarm_code = 209;
                 continue;
             }
             // === 异常检测处理 ===
-            if (data.temperature < -35 || data.temperature > 75)
+            if (data.temperature > 68)
             {
                 AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -497,9 +523,10 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.speed = abs_velocity / 0.514444; 
             // AERROR <<"=======惯导监控线程获取航速；"<<imu_state_.speed;
             // 速度超限检测
-            if (imu_state_.speed < 0.0 || imu_state_.speed > 60.0)
+            if (data.north_velocity >= 0 && data.north_velocity < 30.0 &&
+                    data.east_velocity >= 0 && data.east_velocity < 30.0)
             {
-                AWARN << "航速异常: " << imu_state_.speed << "节" << std::endl;
+                AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
                 imu_state_.alarm_code = 203;
             }
@@ -520,16 +547,15 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.pitch = data.pitch;
             //=================================================================================
 
-            // // 艏向角范围检测
-            // if (data.yaw < -180.0 || data.yaw > 180.0) {
-            //     AWARN << "惯导艏向角异常: " << data.yaw << "°" << std::endl;
-            //     std::lock_guard<std::mutex> lock(status_mutex_);
-            //     imu_state_.status = false;
-            //     imu_state_.alarm_code = 205;
-            // }
+            // 艏向角范围检测
+            if (data.yaw < 0 || data.yaw > 360.0) {
+                AWARN << "惯导艏向角异常: " << data.yaw << "°" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 205;
+            }
 
             // 经纬度范围检测
-            if ((data.longitude < 73.0 || data.longitude > 136.0) ||
+            if ((data.longitude < 73.0 || data.longitude > 135.0) ||
                 (data.latitude < 3.0 || data.latitude > 54.0))
             {
                 AWARN << "惯导经纬度异常: 经度=" << data.longitude
@@ -539,6 +565,20 @@ void ImuMonitorThread::MonitoringLoop()
             }
             imu_state_.latitude = data.latitude;
             imu_state_.longitude = data.longitude;
+
+            // 定位状态检测
+            if (data.GNSS_staus == 0) {
+                AWARN << "定位状态异常" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 207;
+            }
+
+            // 姿态状态检测
+            if (data.posture_status == 0) {
+                AWARN << "姿态状态异常" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 208;
+            }
 
             int gps_week = data.gps_week;
             // AERROR<<"==========data.gps_week:"<<data.gps_week;
@@ -629,18 +669,19 @@ void LinuxPcMonitorThread::MonitoringLoop()
         if (!pc_data_queue.Pop(data))
             continue;
         pc_state_.alarm_code = 301;
+
+        // === 主监控项（每100秒更新）===
+        // 温度异常检测
+        if (data.temperature > 68.0)
+        {
+            AWARN << "PC温度异常: " << data.temperature << "℃" << std::endl;
+            pc_state_.alarm_code = 302;
+        }
+
         // === CPU监控（每10秒更新）===
         if (data.cpu_usage > 70.0)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
-            pc_state_.alarm_code = 302;
-        }
-
-        // === 主监控项（每100秒更新）===
-        // 温度异常检测
-        if (data.temperature > 65.0 || data.temperature < -10.0)
-        {
-            AWARN << "PC温度异常: " << data.temperature << "℃" << std::endl;
             pc_state_.alarm_code = 303;
         }
 

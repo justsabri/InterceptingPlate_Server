@@ -10,57 +10,57 @@
 		"03" : {
 			"discribe" : "mode",
 			"type": "fixed",
-			"value": 17
+			"value": 0
 		},
 		"14" : {
 			"discribe" : "voltage",
 			"type": "fixed",
-			"value": 17
+			"value": 48
 		},
 		"04" : {
 			"discribe" : "current",
 			"type": "fixed",
-			"value": 17
+			"value": 4800
 		},
 		"08" : {
 			"discribe" : "position",
-			"type": "fixed",
+			"type": "degree",
 			"value": 17
 		},
 		"54" : {
 			"discribe" : "position_offset",
-			"type": "fixed",
-			"value": 17
+			"type": "degree",
+			"value": 0
 		},
 		"78" : {
 			"discribe" : "encoder_battery_voltage",
 			"type": "fixed",
-			"value": 17
+			"value": 3800
 		},
 		"18" : {
 			"discribe" : "max_forward_speed",
-			"type": "fixed",
+			"type": "degree_per_s",
 			"value": 17
 		},
 		"19" : {
 			"discribe" : "min_reverse_speed",
-			"type": "fixed",
-			"value": 17
+			"type": "degree_per_s",
+			"value": 0
 		},
 		"1A" : {
 			"discribe" : "max_forward_position",
-			"type": "fixed",
-			"value": 17
+			"type": "degree",
+			"value": 113
 		},
 		"1B" : {
 			"discribe" : "min_reverse_position",
-			"type": "fixed",
-			"value": 17
+			"type": "degree",
+			"value": 0
 		},
 		"31" : {
 			"discribe" : "temperature",
 			"type": "fixed",
-			"value": 17
+			"value": 50
 		}
 		
 	}
