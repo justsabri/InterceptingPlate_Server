@@ -34,7 +34,11 @@ InitDeviceStatus DataContainer::initDevice(void){
         // MotorParser::getInstance().flush(motor_config_.motor[i]);
     }
     //  /dev/ttyS8  参照imu_rs232.h中定义修改
-    init_device_status_.imu = imu.init("/dev/ttyS8",115200);
+    std::string device = "/dev/ttyS8";
+#ifdef VIRTUAL_TEST
+    device = "/dev/ttyV1";
+#endif
+    init_device_status_.imu = imu.init(device,115200);
     AWARN << "初始化惯导"<<init_device_status_.imu;
     return init_device_status_;
 }

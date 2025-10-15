@@ -20,7 +20,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/stat.h>  // 获取文件信息
-// #include "log.h"
+#include "log.h"
 
 using json = nlohmann::json;
 
@@ -36,6 +36,7 @@ public:
     // 获取文件最后修改时间
     time_t getFileModifyTime(const std::string& filename) {
         struct stat fileStat;
+        std::unique_lock<std::mutex> l(file_mutex_);
         if (stat(filename.c_str(), &fileStat) == 0) {
             return fileStat.st_mtime;
         } else {
@@ -46,6 +47,7 @@ public:
     // 安全读取 JSON
     bool safeReadJson(const std::string& filename, json& j) {
         try {
+            std::unique_lock<std::mutex> l(file_mutex_);
             std::ifstream ifs(filename);
             if (!ifs.is_open()) {
                 std::cerr << "Cannot open file: " << filename << std::endl;
@@ -80,6 +82,7 @@ public:
     std::string jsonPath_;
 private:
     time_t lastModifyTime;
+    std::mutex file_mutex_;
 };
 
 class VirtualMotor : public JsonHelper {
@@ -94,7 +97,11 @@ public:
         }
 
     ~VirtualMotor() {
+        std::cout << "motor descont" << std::endl;
         stop();
+        if (sock_ > 0) {
+            close(sock_);
+        }
     }
 
     bool init() {
@@ -124,11 +131,12 @@ public:
             perror("bind");
             return false;
         }
-
+        std::cout << "motor init this " << this << std::endl;
         return true;
     }
 
     void start() {
+        std::cout << "motor this " << this << std::endl;
         running_ = true;
         tRecv_ = std::thread(&VirtualMotor::recvThread, this);
         tProc_ = std::thread(&VirtualMotor::processThread, this);
@@ -137,17 +145,21 @@ public:
 
     void stop() {
         running_ = false;
+        cv_.notify_all();
+
+        // 发送一帧can唤醒read
+        system("cansend can0 123#11223344 &");
+
         if (tRecv_.joinable()) {
             tRecv_.join();
         }
+
         if (tProc_.joinable()) {
             tProc_.join();
         }
+
         if (tLoad_.joinable()) {
             tLoad_.join();
-        }
-        if (sock_ > 0) {
-            close(sock_);
         }
     }
 
@@ -180,15 +192,19 @@ private:
             // 文件修改过，重新读取
             if (loadConfig(path)) {
                 std::cout << "JSON updated: " << config_.dump() << std::endl;
+                return true;
             } else {
                 std::cout << "Failed to parse JSON, keeping previous config." << std::endl;
+                return false;
             }
         }
+        return false;
     }
 
     void loadThread() {
         while (running_) {
             tryLoadConfig(jsonPath_);
+            // std::cout << "loadThread" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
@@ -232,6 +248,8 @@ private:
                 ProtocolItem item = it->second;
                 l.unlock();
                 sendResponse(cmd, item);
+            } else {
+                std::cout << "unknown id: " << cmd << std::endl;
             }
         }
     }
@@ -314,7 +332,7 @@ private:
         safeReadJson(jsonPath_, j);
 
         std::lock_guard<std::mutex> lock(configMutex_);
-        port_ = j.value("port", "/dev/ttyS3");
+        port_ = j.value("port", "/dev/ttyV0");
         baudrate_ = j.value("baud", 115200);
         frequencyHz_ = j.value("frequency_hz", 10);
         loopMessages_ = j.value("loop_messages", true);
@@ -398,15 +416,18 @@ private:
 
     std::vector<uint8_t> buildFrame() {
         std::vector<uint8_t> frame;
-
+        int count = 0;
+        frame.insert(frame.end(), {0xAA, 0x55, 0, 0, 0, 0});
         for (const auto& msg : messages_) {
             uint32_t val = msg.data;
             for (int i = 0; i < msg.length; ++i) {
+                count++;
                 frame.push_back(static_cast<uint8_t>(val & 0xFF)); // 小端序
                 val >>= 8;
             }
         }
-
+        frame.insert(frame.end(), {0, 0, 0, 0});
+        std::cout << "frame count: " << count + 10 << std::endl;
         return frame;
     };
 

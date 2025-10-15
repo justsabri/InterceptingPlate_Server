@@ -100,7 +100,7 @@ int IMURS232::readData() {
             }
         }
     }
-
+    AINFO << "virtual " << bytes_read << " " << header_found;
     if(!header_found)
         return 2;
     

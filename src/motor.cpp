@@ -712,12 +712,12 @@ void MotorParser::receiveLoop()
         }
 
         std::ostringstream oss;
-        // oss << "receive data=" << frame.can_id;
+        oss << "receive data=" << frame.can_id;
         for (int i = 0; i < frame.can_dlc; i++)
         {
             oss << " " << std::hex << static_cast<int>(frame.data[i]);
         }
-        // AINFO << oss.str();
+        AINFO << oss.str();
 
         // 喂狗
         if (frame.data[0] == 0x0A) {

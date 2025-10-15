@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(WebSocketServer)
 
+option(ENABLE_VIRTUAL_DEVICES "Enable virtual devices" OFF)
+option(ENABLE_MOTOR_MODIFY "Enable manual motor modify" OFF)
+
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,8 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # “开启调试信息”那里的三行代码必须要有，否则无法对生成的目标文件进行调试。
 # 开启调试信息
 set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
-set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -Wreturn-type -g2 -ggdb")
+set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall -Wreturn")
 # 原文链接：https://blog.csdn.net/qq_38808215/article/details/89028562
 #==============================================================================
 
@@ -66,43 +69,52 @@ target_link_libraries(websocket_server PRIVATE
     glog::glog
 )
 
-# 测试文件
-add_executable(motor_menu
-    test/test.cpp
-    src/motor.cpp
-)
-target_include_directories(motor_menu PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-)
-target_link_libraries(motor_menu PRIVATE
-    # Boost组件（需要指定具体库）
-    Boost::system  
-    # 线程库
-    Threads::Threads
-    # JSON库
-    nlohmann_json::nlohmann_json
-    # 4. 添加Boost头文件库（可选但推荐）
-    Boost::headers
-    
-    glog::glog
-)
+if (ENABLE_MOTOR_MODIFY)
+    # 电机手动修改参数
+    add_executable(motor_menu
+        test/test.cpp
+        src/motor.cpp
+    )
+    target_include_directories(motor_menu PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(motor_menu PRIVATE
+        # Boost组件（需要指定具体库）
+        Boost::system  
+        # 线程库
+        Threads::Threads
+        # JSON库
+        nlohmann_json::nlohmann_json
+        # 4. 添加Boost头文件库（可选但推荐）
+        Boost::headers
 
-# 虚拟设备
-add_executable(virtual_device
-    test/virtual_main.cpp
-)
-target_include_directories(virtual_device PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-)
-target_link_libraries(virtual_device PRIVATE
-    # Boost组件（需要指定具体库）
-    Boost::system  
-    # 线程库
-    Threads::Threads
-    # JSON库
-    nlohmann_json::nlohmann_json
-    # 4. 添加Boost头文件库（可选但推荐）
-    Boost::headers
-    
-    glog::glog
-)
+        glog::glog
+    )
+
+endif()
+
+if (ENABLE_VIRTUAL_DEVICES)
+    # 虚拟设备
+    add_executable(virtual_device
+        test/virtual_main.cpp
+    )
+    target_include_directories(virtual_device PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(virtual_device PRIVATE
+        # Boost组件（需要指定具体库）
+        Boost::system  
+        # 线程库
+        Threads::Threads
+        # JSON库
+        nlohmann_json::nlohmann_json
+        # 4. 添加Boost头文件库（可选但推荐）
+        Boost::headers
+
+        glog::glog
+    )
+
+    # 串口修改为虚拟串口
+    target_compile_definitions(websocket_server PUBLIC VIRTUAL_TEST)
+
+endif()

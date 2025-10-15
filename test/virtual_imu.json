@@ -1,5 +1,5 @@
 {
-  "port": "/dev/ttyS1",
+  "port": "/dev/ttyV0",
   "baud": 115200,
   "frequency_hz": 10,
   "loop_messages": true,
