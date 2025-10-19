@@ -1,4 +1,5 @@
 #include "WebSocketServer.h"
+#include "ModbusTcpServer.h"
 #include <log.h>
 #include <cstdlib>
 #include "controller.h"
@@ -10,6 +11,7 @@
  * @return 程序退出状态码：0表示正常退出，非0表示异常退出。
  */
 int main() {
+#ifdef WEBSOCKET_COMMUNICATION
     // 初始化日志系统，设置应用名称
     InitLog("WebSocketServer");
     AINFO<<"start system";
@@ -36,8 +38,12 @@ int main() {
         StopLog();
         return EXIT_FAILURE;
     }
-    
+
     // 正常退出前停止日志系统
     StopLog();
+
+#elif MODBUSTCP_COMMUNICATION
+
+#endif
     return EXIT_SUCCESS;
 }

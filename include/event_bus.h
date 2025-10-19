@@ -4,26 +4,46 @@
 #include <vector>
 #include <string>
 #include <log.h>
-#include <nlohmann/json.hpp>
+// #include <nlohmann/json.hpp>
+#include <any>
+#include <typeindex>
+#include <mutex>
 
 class EventBus {
 public:
     EventBus() { AERROR << "bus construct"; };
-    using json = nlohmann::json;
-    using Callback = std::function<void(const json)>;
 
-    void subscribe(const std::string& event, Callback cb) {
-        listeners[event].emplace_back(std::move(cb));
+    template<typename EventT>
+    using Callback = std::function<void(const EventT)>;
+
+    template<typename EventT>
+    void subscribe(const std::string& event, Callback<EventT> cb) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        listeners[event].push_back({std::type_index(typeid(EventT)),
+                       [cb](const std::any& e){ cb(std::any_cast<const EventT&>(e)); }});
         AERROR << event << " " << listeners[event].size();
     }
 
-    void publish(const std::string& event, json data) {
+    template<typename EventT>
+    void publish(const std::string& event, EventT data) {
         AERROR << event << " " << listeners[event].size();
-        for (auto& cb : listeners[event]) {
-            cb(data);
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = listeners.find(event);
+        if (it != listeners.end()) {
+            for (auto& [type, fn] : it->second) {
+                if (type == std::type_index(typeid(EventT))) {
+                    fn(event);
+                }
+            }
         }
     }
 
 private:
-    std::unordered_map<std::string, std::vector<Callback>> listeners;
+    struct CallbackWrapper {
+        std::type_index type;
+        std::function<void(const std::any&)> fn;
+    };
+
+    std::unordered_map<std::string, std::vector<CallbackWrapper>> listeners;
+    std::mutex mutex_;
 };

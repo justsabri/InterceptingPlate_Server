@@ -8,10 +8,15 @@
 Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
                                         auto_mode_(0) {
     AERROR << &event_bus_;
-    event_bus_.subscribe("from_ws", [this](const json j) {
+#ifdef WEBSOCKET_COMMUNICATION
+    event_bus_.subscribe<json>("from_ws", [this](const json j) {
         handle_message(j);  // 当 WebSocket 服务端发来数据时，进行处理
     });
-
+#elif MODBUSTCP_COMMUNICATION
+    event_bus_.subscribe<ModbusDataEvent>("from_modbus", [this](const ModbusDataEvent event) {
+        handle_message(event);
+    });
+#endif
     alg_processor_ = std::make_unique<AlgProcessor>();
     motor_ctrl_ = std::make_unique<MotorController>();
 }
@@ -102,7 +107,10 @@ void Controller::start() {
 
     // 初始化状态监测
     std::function<void(DataPack)> state_cb = [this](DataPack data) {
-        monitor_pack_ = data;
+        {
+            std::lock_guard<std::mutex> l(data_mutex_);
+            monitor_pack_ = data;
+        }
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
     };
 
@@ -116,6 +124,7 @@ void Controller::start() {
 }
 
 void Controller::sendDataToClient(Data_Type type, void* data) {
+#ifdef WEBSOCKET_COMMUNICATION
     thread_pool_.enqueue([this](Data_Type type, void* data){
         json j;
         convertStructToJson(type, data, j);
@@ -124,6 +133,9 @@ void Controller::sendDataToClient(Data_Type type, void* data) {
         event_bus_.publish("to_ws", j);  // 发布事件，WebSocket 服务端会收到并主动发送到客户端
         AERROR << "END";
     }, type, data);
+#elif MODBUSTCP_COMMUNICATION
+    // 不需要主动发送
+#endif
 }
 
 void Controller::handle_message(const json& j) {
@@ -209,10 +221,62 @@ void Controller::handle_message(const json& j) {
     };
 
     thread_pool_.enqueue(func, j);
-    
+}
+
+static void auto_ctrl(void* ptr) {
+    if (!ptr)
+        return;
+    Controller* ctl = (Controller*)ptr;
+    if (ctl->ctl_params_.mode == 0) {
+        // 清除自动模式的资源
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, ctl);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl);
+        // 控制 moter_ctrl执行对应命令
+        ctl->ctrl_motor(0, 0);
+    } else if (ctl->ctl_params_.mode == 1) {
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, ctl);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl);
+        // 控制 moter_ctrl执行对应命令
+        ctl->ctrl_motor(0, 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1300));
+        ctl->auto_mode_ = ctl->ctl_params_.auto_mode;
+        // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
+        DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, ctl->imu_data_cb, ctl);
+        DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl->motor_data_cb, ctl);
+    }
+}
+
+void Controller::handle_message(const ModbusDataEvent &event) {
+    static ModbusParamItem modbus_param_table[] = {
+        {"ctl_ext1", &ctl_params_.ext1, 0x1000, [](void* ptr){
+            Controller* ctl = (Controller*)ptr;
+            double degree = ctl->yToTheta(ctl->ctl_params_.ext1);
+            ctl->motor_ctrl_->control_motor(MotorController::Command::POSITION_MODE_TARGET, 1, degree);
+        }},
+        {"ext1", &monitor_pack_.motor_state[1].plate, 0x1000, nullptr},
+        {"auto_mode", (void*)(uint8_t*)&auto_mode_, 0x1004, auto_ctrl},
+        {"roll", (void*)((uint8_t*)&monitor_pack_ + offsetof(DataPack, imu_state) + offsetof(ImuStateData, roll)), 0x1004, nullptr},
+    };
+
+
+    for (int i = 0; i < sizeof(modbus_param_table)/sizeof(ModbusParamItem); i++) {
+        ModbusParamItem& item = modbus_param_table[i];
+        if (item.modbus_addr == event.addr) {
+            if (event.func == "POST") {
+                memcpy(item.pointer, event.frame, event.len);
+                if (item.handler_ptr) {
+                    thread_pool_.enqueue([this, item](Controller* ctl){item.handler_ptr(ctl); }, this);
+                }
+            } else if (event.func == "GET") {
+                memcpy(event.frame, item.pointer, event.len);
+            }
+            break;
+        }
+    }
 }
 
 void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
+    std::lock_guard<std::mutex> l(data_mutex_);
     if (data == nullptr)
         return;
 
@@ -453,6 +517,9 @@ double simulation_angle(double x) {
 
 void Controller::tryProcess()
 {
+    if (auto_mode_ == 0) {
+        return;
+    }
     std::lock_guard<std::mutex> l(package_lock_);
     if (alg_package_.motor_data.has_value() && alg_package_.imu_data.has_value()) {
         AWARN<<"向自动控制算法传入数据=========================";

@@ -26,8 +26,26 @@ public:
     void start();
     void sendDataToClient(Data_Type type, void *data);
     void handle_message(const json &j);
+    void handle_message(const ModbusDataEvent &event);
     double thetaToY(double theta_deg);
     double yToTheta(double y);
+    void ctrl_motor(std::optional<float> left, std::optional<float> right);
+
+    typedef struct {
+        int mode;
+        int auto_mode;
+        float ext1;
+        float ext2;
+        float ext3;
+        float ext4;
+    } ctrl_params;
+
+    DataPack monitor_pack_;
+    std::unique_ptr<MotorController> motor_ctrl_;
+    ctrl_params ctl_params_;
+    std::function<void(ImuData data)> imu_data_cb;
+    std::function<void(std::map<int, MotorData> data)> motor_data_cb;
+    int auto_mode_;
 
 private:
     class SafeExtension
@@ -62,7 +80,6 @@ private:
     void convertStructToJson(Data_Type type, void *data, json &j);
     void tryProcess();
     void excuteAlgCmd(const AlgResult &res);
-    void ctrl_motor(std::optional<float> left, std::optional<float> right);
 
     typedef struct
     {
@@ -94,16 +111,12 @@ private:
     std::thread alg_worker_;
     Alg_Data_Package alg_package_;
     std::mutex package_lock_;
-    int auto_mode_;
 
-    std::function<void(ImuData data)> imu_data_cb;
-    std::function<void(std::map<int, MotorData> data)> motor_data_cb;
-
-    std::unique_ptr<MotorController> motor_ctrl_;
     Config_Info config_info_;
 
     std::unique_ptr<MonitoringSystem> monitor_system_;
-    DataPack monitor_pack_;
 
     SafeExtension safe_ext_;
+
+    std::mutex data_mutex_;
 };

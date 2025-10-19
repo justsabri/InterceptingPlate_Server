@@ -30,9 +30,11 @@ find_package(glog REQUIRED)
 # 包含json和websocketpp
 find_package(nlohmann_json 3.0 REQUIRED)
 find_package(WebSocketpp REQUIRED)
+# libmodbus
 
-# 设置源文件
-set(SOURCE_FILES
+
+# 设置websocket server源文件
+set(WEBSOCKET_SOURCE_FILES
     src/main.cpp
     src/WebSocketServer.cpp
     src/controller.cpp
@@ -47,15 +49,15 @@ set(SOURCE_FILES
     src/pc.cpp
 )
 
-# 可执行文件目标
-add_executable(websocket_server ${SOURCE_FILES})
+# websocket_server可执行文件目标
+add_executable(websocket_server ${WEBSOCKET_SOURCE_FILES})
 
-# 2. 现代包含目录声明（PRIVATE作用域）
+# 现代包含目录声明（PRIVATE作用域）
 target_include_directories(websocket_server PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# 3. 修正库链接
+# 修正库链接
 target_link_libraries(websocket_server PRIVATE
     # Boost组件（需要指定具体库）
     Boost::system  
@@ -69,8 +71,52 @@ target_link_libraries(websocket_server PRIVATE
     glog::glog
 )
 
+# 增加宏定义
+target_compile_definitions(websocket_server PUBLIC WEBSOCKET_COMMUNICATION)
+
+# 设置websocket server源文件
+set(MODBUSTCP_SOURCE_FILES
+    src/main.cpp
+    src/ModbusTcpServer.cpp
+    src/controller.cpp
+    src/alg_processor.cpp
+    src/pid_control.cpp
+    src/data_container.cpp
+    src/data_center.cpp
+    src/imu_rs232.cpp
+    src/monitor_system.cpp
+    src/motor_controller.cpp
+    src/motor.cpp
+    src/pc.cpp
+)
+
+# websocket_server可执行文件目标
+add_executable(modbustcp_server ${MODBUSTCP_SOURCE_FILES})
+
+# 现代包含目录声明（PRIVATE作用域）
+target_include_directories(modbustcp_server PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# 修正库链接
+target_link_libraries(modbustcp_server PRIVATE
+    # Boost组件（需要指定具体库）
+    Boost::system  
+    # 线程库
+    Threads::Threads
+    # modbus库
+    modbus
+    # 4. 添加Boost头文件库（可选但推荐）
+    Boost::headers
+    
+    glog::glog
+)
+
+# 增加宏定义
+target_compile_definitions(modbustcp_server PUBLIC MODBUSTCP_COMMUNICATION)
+
+# 电机手动修改参数
 if (ENABLE_MOTOR_MODIFY)
-    # 电机手动修改参数
     add_executable(motor_menu
         test/test.cpp
         src/motor.cpp
@@ -93,8 +139,8 @@ if (ENABLE_MOTOR_MODIFY)
 
 endif()
 
+# 虚拟设备
 if (ENABLE_VIRTUAL_DEVICES)
-    # 虚拟设备
     add_executable(virtual_device
         test/virtual_main.cpp
     )

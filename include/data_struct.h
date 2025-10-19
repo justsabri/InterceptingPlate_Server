@@ -143,3 +143,24 @@ typedef enum {
 
 } Data_Type;
 
+struct ModbusDataEvent {
+    std::string func;
+    uint16_t addr;
+    uint16_t count;
+    int len;
+    uint8_t* frame;
+};
+
+// typedef enum {
+//     MODBUS_PARAM_TYPE_FLOAT,
+//     MODBUS_PARAM_TYPE_INT32,
+//     MODBUS_PARAM_TYPE_UINT16,
+// } ModbusParamType;
+
+typedef struct {
+    const std::string name;
+    // ModbusParamType type;
+    void* pointer;
+    uint16_t modbus_addr;
+    void (*handler_ptr)(void* ptr);
+} ModbusParamItem;
