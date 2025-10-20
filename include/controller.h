@@ -32,12 +32,11 @@ public:
     void ctrl_motor(std::optional<float> left, std::optional<float> right);
 
     typedef struct {
-        int mode;
-        int auto_mode;
-        float ext1;
-        float ext2;
-        float ext3;
-        float ext4;
+        uint16_t mode;
+        uint16_t auto_mode;
+        float ext_left;
+        float ext_right;
+        float rudder;
     } ctrl_params;
 
     DataPack monitor_pack_;
@@ -80,6 +79,7 @@ private:
     void convertStructToJson(Data_Type type, void *data, json &j);
     void tryProcess();
     void excuteAlgCmd(const AlgResult &res);
+    void tryHandleError();
 
     typedef struct
     {

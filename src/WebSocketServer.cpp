@@ -103,6 +103,10 @@ void WebSocketServer::on_close(wspp::connection_hdl hdl) {
     // 获取连接指针，以便获取远程端点信息
     auto con = server_.get_con_from_hdl(hdl);
     connections.erase(hdl);
+
+    json j;
+    j["command"]["control_mode"] = "STOP";
+    event_bus.publish("from_ws", j);
     // 记录客户端断开连接
     AINFO << "Client disconnected: " << con->get_remote_endpoint();
 }

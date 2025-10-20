@@ -133,6 +133,7 @@ public:
     void setPositionOffset(int32_t offset,int can_id);  // 设置位置偏移
     void setBaud(int32_t baud,int can_id);  //设置波特率  1000、500、250、125、100、50
     void flush(int can_id);//储存参数到Flash
+    void setStopMode(int can_id);
     //获取电机数据
     MotorData getMotorData(int can_id);     //获取电机数据
 

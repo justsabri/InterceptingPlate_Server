@@ -147,8 +147,12 @@ void Controller::handle_message(const json& j) {
             std::string controlMode = command["control_mode"].get<std::string>();
 
             // 根据控制模式进行分支处理
-            if (controlMode == "MANUAL") {
-
+            if (controlMode == "STOP") {
+                auto_mode_ = 0;
+                // 清除自动模式的资源
+                DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+                DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+            } else if (controlMode == "MANUAL") {
                 // 清除自动模式的资源
                 DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
                 DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
@@ -248,14 +252,37 @@ static void auto_ctrl(void* ptr) {
 
 void Controller::handle_message(const ModbusDataEvent &event) {
     static ModbusParamItem modbus_param_table[] = {
-        {"ctl_ext1", &ctl_params_.ext1, 0x1000, [](void* ptr){
+        {"mode", &ctl_params_.mode, 0x1001, auto_ctrl},
+        {"ctl_ext_left", &ctl_params_.ext_left, 0x1002, [](void* ptr){
             Controller* ctl = (Controller*)ptr;
-            double degree = ctl->yToTheta(ctl->ctl_params_.ext1);
-            ctl->motor_ctrl_->control_motor(MotorController::Command::POSITION_MODE_TARGET, 1, degree);
+            double degree = ctl->yToTheta(ctl->ctl_params_.ext_left);
+            ctl->ctrl_motor(degree, std::nullopt);
         }},
-        {"ext1", &monitor_pack_.motor_state[1].plate, 0x1000, nullptr},
-        {"auto_mode", (void*)(uint8_t*)&auto_mode_, 0x1004, auto_ctrl},
-        {"roll", (void*)((uint8_t*)&monitor_pack_ + offsetof(DataPack, imu_state) + offsetof(ImuStateData, roll)), 0x1004, nullptr},
+        {"ctl_ext_right", &ctl_params_.ext_right, 0x1004, [](void* ptr){
+            Controller* ctl = (Controller*)ptr;
+            double degree = ctl->yToTheta(ctl->ctl_params_.ext_right);
+            ctl->ctrl_motor(std::nullopt, degree);
+        }},
+        {"auto_mode", (void*)(uint8_t*)&ctl_params_.auto_mode, 0x1006, auto_ctrl},
+        {"rudder", (void*)(uint8_t*)&ctl_params_.rudder, 0x1007, [](void* ptr){
+            Controller* ctl = (Controller*)ptr;
+            if (ctl->alg_package_.imu_data.has_value()) {
+                ctl->alg_package_.imu_data.value().current_rudder = ctl->ctl_params_.rudder;
+            }
+        }},
+        {"speed", (void*)((uint8_t*)&monitor_pack_ + offsetof(DataPack, imu_state) + offsetof(ImuStateData, speed)), 0x2001, nullptr},
+        {"ext_left", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.left_motor[0]].plate, 0x2003, nullptr},
+        {"ext_right", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.right_motor[0]].plate, 0x2005, nullptr},
+        {"motor_num", (void*)(uint8_t*)&config_info_.motor_num, 0x2007, nullptr},
+        {"motor1_state", (void*)(uint8_t*)&monitor_pack_.motor_state[1].alarm_code, 0x2008, nullptr},
+        {"motor2_state", (void*)(uint8_t*)&monitor_pack_.motor_state[2].alarm_code, 0x2009, nullptr},
+        {"motor3_state", (void*)(uint8_t*)&monitor_pack_.motor_state[3].alarm_code, 0x2010, nullptr},
+        {"motor4_state", (void*)(uint8_t*)&monitor_pack_.motor_state[4].alarm_code, 0x2011, nullptr},
+        {"imu_state", (void*)(uint8_t*)&monitor_pack_.imu_state.alarm_code, 0x2012, nullptr},
+        {"pc_state", (void*)(uint8_t*)&monitor_pack_.pc_state.alarm_code, 0x2013, nullptr},
+        {"yaw", (void*)(uint8_t*)&monitor_pack_.imu_state.yaw, 0x2014, nullptr},
+        {"pitch", (void*)(uint8_t*)&monitor_pack_.imu_state.pitch, 0x2016, nullptr},
+        {"roll", (void*)(uint8_t*)&monitor_pack_.imu_state.roll, 0x2018, nullptr},
     };
 
 
@@ -528,7 +555,7 @@ void Controller::tryProcess()
         //---------------------1、船舶当前舵角-------------------------------------
         // 20250822 田鸿宇 新算法用到  船舶  舵角参数
         // 船舶当前舵角
-        alg_package_.in.current_rudder = alg_package_.imu_data.value().current_rudder;
+        // alg_package_.in.current_rudder = alg_package_.imu_data.value().current_rudder;
         //---------------------1、船舶当前舵角-------------------------------------
         float n_s = alg_package_.imu_data.value().north_velocity;
         float e_s = alg_package_.imu_data.value().east_velocity;
@@ -594,6 +621,26 @@ void Controller::excuteAlgCmd(const AlgResult& res) {
     double theta1 = yToTheta(res.new_left);
     double theta2 = yToTheta(res.new_right);
     ctrl_motor(theta1,theta2);
+}
+
+void Controller::tryHandleError() {
+    // 电机故障
+    bool need_stop = false;
+    for (auto& item : monitor_pack_.motor_state) {
+        if (item.second.alarm_code != 101 && item.second.alarm_code != 106) {
+            // 严重报警，停止电机
+            need_stop = true;
+            break;
+        }
+    }
+
+    if (need_stop) {
+        for (auto& item : monitor_pack_.motor_state) {
+            motor_ctrl_->stopMotor(item.first);
+        }
+    } else {
+        motor_ctrl_->keepRunning();
+    }
 }
 
 void Controller::ctrl_motor(std::optional<float> left, std::optional<float> right) {

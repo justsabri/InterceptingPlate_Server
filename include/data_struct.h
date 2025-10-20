@@ -107,12 +107,12 @@ struct InitDeviceStatus {
 //电机状态
 struct MotorStateData {
     float plate;  //当前截流板伸出量（电机转动角度）实际：0~100° 理论：0~113°
-    int alarm_code; //电机状态码
+    uint16_t alarm_code; //电机状态码
 };
 // 惯导状态
 struct ImuStateData
 {
-  int alarm_code;       // 惯导状态码
+  uint16_t alarm_code;       // 惯导状态码
   float pitch;          // 纵倾角
   float roll;           // 横倾角
   float latitude;       // 经度
@@ -128,7 +128,7 @@ struct ImuStateData
 };
 //下位机状态
 struct PCStateData {
-    int alarm_code; //下位机状态码
+    uint16_t alarm_code; //下位机状态码
 };
 
 //数据打包结构体

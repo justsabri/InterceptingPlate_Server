@@ -13,7 +13,7 @@ ModbusServer::~ModbusServer() {
 }
 
 bool ModbusServer::start(int port) {
-    ctx_ = modbus_new_tcp("0.0.0.0", port);
+    ctx_ = modbus_new_tcp("192.168.1.77", port);
     if (!ctx_) {
         std::cerr << "Failed to create modbus context\n";
         return false;

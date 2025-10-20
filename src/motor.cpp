@@ -477,6 +477,12 @@ void MotorParser::setPositionModeAndTarget(double targetAngle, int can_id)
     sendMotorCommand(can_id, 0x1E, data, PRIORITY_HIGH);
 }
 
+// 设置停止模式
+void MotorParser::setStopMode(int can_id)
+{
+    sendMotorCommand(can_id, 0x02, {}, PRIORITY_HIGH);
+}
+
 // 设置电机最大正向加速度
 void MotorParser::setMaxForwardAcceleration(int32_t acceleration, int can_id)
 {

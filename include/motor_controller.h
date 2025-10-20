@@ -9,6 +9,7 @@ private:
     std::mutex mtx_;
     float min_reverse_position;
     float max_forward_positon;
+    bool allow_ctrl_ = true;
 public:
       // 指令枚举类型
     enum class Command {
@@ -26,5 +27,7 @@ public:
     // void init_motor_position();
     // 统一控制函数
     void control_motor(Command cmd, int can_id, std::variant<double, int32_t> value);
+    void stopMotor(int can_id);
+    void keepRunning();
 };
 
