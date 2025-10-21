@@ -9,7 +9,7 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
                                         auto_mode_(0) {
     AERROR << &event_bus_;
 #ifdef WEBSOCKET_COMMUNICATION
-    event_bus_.subscribe<json>("from_ws", [this](const json j) {
+    event_bus_.subscribe<nlohmann::json>("from_ws", [this](const json j) {
         handle_message(j);  // 当 WebSocket 服务端发来数据时，进行处理
     });
 #elif MODBUSTCP_COMMUNICATION

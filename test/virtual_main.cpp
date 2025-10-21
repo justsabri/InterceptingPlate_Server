@@ -1,5 +1,6 @@
 #include "virtual_devices.h"
 #include <iostream>
+#include <filesystem>
 
 bool canInterfaceExists(const std::string& ifname) {
     int sock = socket(PF_INET, SOCK_DGRAM, 0);
@@ -102,7 +103,7 @@ int main() {
         try {
             if (idx == 1) {
                 if (motor_action == "启动") {
-                    // AINFO << "电机启动";
+                    std::cout << "电机启动\n";
                     for (auto& motor : motors) {
                         motor->start();
                     }

@@ -34,7 +34,7 @@ WebSocketServer::WebSocketServer(EventBus& bus) : event_bus(bus) {
     });
 
     // 注册回调
-    event_bus.subscribe<json>("to_ws", [this](const json j) {
+    event_bus.subscribe<nlohmann::json>("to_ws", [this](const json j) {
         std::string msg = j.dump();
         AINFO << "send by websocket";
         sendToClient(msg);

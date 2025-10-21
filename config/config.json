@@ -9,7 +9,7 @@
             "motor_offset_positon":0.0
         },
         "0x003" : {
-            "location" : "right",
+            "location" : "left",
             "motor_offset_positon":0.0
         },
         "0x004" : {
@@ -18,7 +18,7 @@
         }
     },
     "motor_freq" : 10,
-    "imu_freq" : 10,
+    "imu_freq" : 30,
     "pc_freq" : 1,
     "cb_freq" : 1,
     "max_ext" : 50.0,

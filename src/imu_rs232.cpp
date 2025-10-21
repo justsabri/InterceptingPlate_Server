@@ -253,7 +253,7 @@ void IMURS232::parserData(uint8_t *data){  //参照pdf设置缩放值
     AERROR << "pitch: " << imu_data.pitch ;
     AERROR << "roll: " << imu_data.roll ;
     //---新的垂直惯导布放方式------
-    imu_data.roll += 180.0;
+    // imu_data.roll += 180.0;
     AERROR << "roll 2: " << imu_data.roll;
     // 横倾角--纵倾角  反向 20250807
     double new_pitch = -imu_data.roll;

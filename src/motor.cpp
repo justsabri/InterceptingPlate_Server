@@ -627,27 +627,27 @@ void MotorParser::queryAll(int can_id)
     // 暂定实现
     // 位置获取频率20hz 电流获取频率10hz
     // 其他信息1hz
-     int times = 0;
-     if (times != motor_freq_)
-     {
-         MotorParamItem *item = &g_param_table[4]; // 电机位置 获取频率=motor_freq
-         sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
-         times++;
-     }
-     else if (times % 2 == 0)
-     {
-         MotorParamItem *item = &g_param_table[3]; // 电机电流 获取频率=motor_freq/2
-         sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
-     }
-     else if (times == motor_freq_)
-     {
-         for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++)
-         {
-             MotorParamItem *item = &g_param_table[i];//所有数据 频率为1Hz
-             sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
-         }
-         times = 0;
-     }
+    //  int times = 0;
+    //  if (times != motor_freq_)
+    //  {
+    //      MotorParamItem *item = &g_param_table[4]; // 电机位置 获取频率=motor_freq
+    //      sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
+    //      times++;
+    //  }
+    //  else if (times % 2 == 0)
+    //  {
+    //      MotorParamItem *item = &g_param_table[3]; // 电机电流 获取频率=motor_freq/2
+    //      sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
+    //  }
+    //  else if (times == motor_freq_)
+    //  {
+    //      for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++)
+    //      {
+    //          MotorParamItem *item = &g_param_table[i];//所有数据 频率为1Hz
+    //          sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
+    //      }
+    //      times = 0;
+    //  }
 
     // 改进实现-1
     // int times = 0;
@@ -669,11 +669,11 @@ void MotorParser::queryAll(int can_id)
     // }
 
     // 原始实现
-    // for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++)
-    // {
-    //     MotorParamItem *item = &g_param_table[i];
-    //     sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
-    // }
+    for (int i = 0; i < sizeof(g_param_table) / sizeof(MotorParamItem); i++)
+    {
+        MotorParamItem *item = &g_param_table[i];
+        sendMotorCommand(can_id, item->can_cmd, {}, PRIORITY_NORMAL);
+    }
 }
 
 MotorParamItem *MotorParser::getItemByCanCmd(uint16_t can_cmd)

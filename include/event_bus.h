@@ -20,7 +20,7 @@ public:
     void subscribe(const std::string& event, Callback<EventT> cb) {
         std::lock_guard<std::mutex> lock(mutex_);
         listeners[event].push_back({std::type_index(typeid(EventT)),
-                       [cb](const std::any& e){ cb(std::any_cast<const EventT&>(e)); }});
+                       [cb](const std::any e){ cb(std::any_cast<const EventT>(e)); }});
         AERROR << event << " " << listeners[event].size();
     }
 
@@ -32,7 +32,7 @@ public:
         if (it != listeners.end()) {
             for (auto& [type, fn] : it->second) {
                 if (type == std::type_index(typeid(EventT))) {
-                    fn(event);
+                    fn(data);
                 }
             }
         }
@@ -41,7 +41,7 @@ public:
 private:
     struct CallbackWrapper {
         std::type_index type;
-        std::function<void(const std::any&)> fn;
+        std::function<void(const std::any)> fn;
     };
 
     std::unordered_map<std::string, std::vector<CallbackWrapper>> listeners;
