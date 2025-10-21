@@ -21,9 +21,9 @@ bool fileExists(const char* path) {
 }
 
 void createVirtualSerialPort() {
-    if (!fileExists("/dev/ttyV0")) {
+    if (!fileExists("/tmp/ttyV0")) {
         std::cout << "Creating virtual serial ports..." << std::endl;
-        system("socat -d -d pty,link=/dev/ttyV0,raw,echo=0 pty,link=/dev/ttyV1,raw,echo=0 &");
+        system("socat -d -d pty,link=/tmp/ttyV0,raw,echo=0 pty,link=/tmp/ttyV1,raw,echo=0 &");
         sleep(1);
     } else {
         std::cout << "Virtual ports already exist." << std::endl;

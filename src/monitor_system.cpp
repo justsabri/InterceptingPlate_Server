@@ -152,7 +152,7 @@ void MotorMonitorThread::MonitoringLoop()
         // 阻塞等待新数据
         if (!motor_data_queue.Pop(motors) || motors.size() != 4)
             continue;
-        for (int i = 2; i < motors.size(); i++)
+        for (int i = 0; i < motors.size(); i++)
         { // 遍历所有电机
             MotorData data = motors[i];
             int motor_index = i;

@@ -1,5 +1,5 @@
 {
-  "port": "/dev/ttyV0",
+  "port": "/tmp/ttyV0",
   "baud": 115200,
   "frequency_hz": 10,
   "loop_messages": true,
@@ -46,7 +46,7 @@
     },
     {
       "describe" : "roll",
-      "data": 500,
+      "data": 700,
       "length": 2
     },
     {

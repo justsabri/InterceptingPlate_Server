@@ -9,7 +9,7 @@
             "motor_offset_positon":0.0
         },
         "0x003" : {
-            "location" : "left",
+            "location" : "right",
             "motor_offset_positon":0.0
         },
         "0x004" : {

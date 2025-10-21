@@ -70,7 +70,7 @@ public:
     bool isNeedRead() {
         bool is_need = false;
         time_t curModifyTime = getFileModifyTime(jsonPath_);
-
+        std::cout << " curModifyTime " << jsonPath_ << ", " << curModifyTime << std::endl;
         is_need = curModifyTime != 0 && curModifyTime != lastModifyTime;
         if (is_need) {
             lastModifyTime = curModifyTime;
@@ -310,7 +310,7 @@ private:
 class VirtualImu : public JsonHelper {
 public:
     VirtualImu(const std::string& jsonPath)
-        : jsonPath_(jsonPath), fd_(-1), running_(false) {
+        : fd_(-1), running_(false) {
         jsonPath_ = jsonPath;
         loadConfig();
     };
@@ -339,7 +339,7 @@ private:
         safeReadJson(jsonPath_, j);
 
         std::lock_guard<std::mutex> lock(configMutex_);
-        port_ = j.value("port", "/dev/ttyV0");
+        port_ = j.value("port", "/tmp/ttyV0");
         baudrate_ = j.value("baud", 115200);
         frequencyHz_ = j.value("frequency_hz", 10);
         loopMessages_ = j.value("loop_messages", true);
@@ -439,7 +439,6 @@ private:
     };
 
 private:
-    std::string jsonPath_;
     std::string port_;
     int baudrate_;
     int frequencyHz_;

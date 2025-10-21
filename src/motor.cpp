@@ -831,8 +831,6 @@ void MotorParser::commandProcessingThread()
                                   !normal_priority_queue_.empty() ||
                                   !running_; });
 
-            if (!running_)
-                break;
 
             // 优先处理高优先级指令
             if (!high_priority_queue_.empty())
