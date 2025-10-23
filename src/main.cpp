@@ -13,7 +13,7 @@
 int main() {
 #ifdef WEBSOCKET_COMMUNICATION
     // 初始化日志系统，设置应用名称
-    InitLog("WebSocketServer");
+    InitLog("WebSocketServer", "/home/zlg/server/0730/InterceptingPlate_new/log", 10);
     AINFO<<"start system";
     try {
         // 创建事件总线

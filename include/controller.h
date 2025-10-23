@@ -100,6 +100,7 @@ private:
         int motor_num;
         std::vector<int> left_motor;
         std::vector<int> right_motor;
+        std::vector<int> motor_id;
         float max_ext;
         ext2deg_formula1 ext2deg;
     } Config_Info;

@@ -167,7 +167,7 @@ int main() {
     }
     MotorParser::getInstance().stopReceiveThread();
     std::vector<Motor> motors;
-    for (int i = 1; i <= 4; ++i) {
+    for (int i = 3; i <= 4; ++i) {
         motors.push_back(Motor{i, 0, 0});
     }
     std::cout << "\n----------------------------------------------------------\n";
@@ -190,11 +190,15 @@ int main() {
 
         try {
             int idx = std::stoi(input);
-            if (idx >= 1 && idx <= motors.size()) {
-                show_motor_menu(motors[idx - 1]);
-            } else {
-                std::cout << "无效电机编号。\n";
+
+            for (auto& elem : motors) {
+                if (elem.id == idx) {
+                    show_motor_menu(elem);
+                }
             }
+
+            // std::cout << "无效电机编号： "  << idx << std::endl;
+
         } catch (...) {
             std::cout << "请输入正确编号。\n";
         }

@@ -150,12 +150,12 @@ void MotorMonitorThread::MonitoringLoop()
         std::map<int, MotorData> motors;
 
         // 阻塞等待新数据
-        if (!motor_data_queue.Pop(motors) || motors.size() != 4)
+        if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num)
             continue;
         for (int i = 0; i < motors.size(); i++)
         { // 遍历所有电机
-            MotorData data = motors[i];
-            int motor_index = i;
+            int motor_index = motor_position_offset_.motor[i];
+            MotorData data = motors[motor_index];
             motor_state_[motor_index].alarm_code = 101;
             // 电机断连检测
             if (data.disconnect) {
@@ -225,9 +225,10 @@ void MotorMonitorThread::MonitoringLoop()
                     error_counters[motor_index][105] = 0;
                 }
             }
-
+            AERROR<<"电机"<<motor_index<<"编码器电池电压"<<data.encoder_battery_voltage;
             // 电池电压异常检测
-            if (data.encoder_battery_voltage >= 3.2 && data.encoder_battery_voltage <= 3.6)
+            //获取的电压*0.01为实际电压
+            if (data.encoder_battery_voltage >= 290 && data.encoder_battery_voltage <= 320)
             {
                 if (++error_counters[motor_index][106] >= 1)
                 {
@@ -237,7 +238,7 @@ void MotorMonitorThread::MonitoringLoop()
                     motor_state_[motor_index].alarm_code = 106;
                 }
             }
-            else if (data.encoder_battery_voltage < 3.2)
+            else if (data.encoder_battery_voltage < 290)
             {
                 if (++error_counters[motor_index][107] >= 1)
                 {
@@ -282,6 +283,7 @@ void MotorMonitorThread::MonitoringLoop()
                         std::lock_guard<std::mutex> lock(status_mutex_);
                         motor_state_[motor_index].alarm_code = 108;
                     }
+                    // TODO ： 使用118来让controller控制电机回0
                 }
                 else
                 {
@@ -523,8 +525,8 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.speed = abs_velocity / 0.514444; 
             // AERROR <<"=======惯导监控线程获取航速；"<<imu_state_.speed;
             // 速度超限检测
-            if (data.north_velocity >= 0 && data.north_velocity < 30.0 &&
-                    data.east_velocity >= 0 && data.east_velocity < 30.0)
+            if (data.north_velocity <= 0 && data.north_velocity > 30.0 &&
+                    data.east_velocity <= 0 && data.east_velocity > 30.0)
             {
                 AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -566,19 +568,19 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.latitude = data.latitude;
             imu_state_.longitude = data.longitude;
 
-            // 定位状态检测
-            if (data.GNSS_staus == 0) {
-                AWARN << "定位状态异常" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 207;
-            }
+            // // 定位状态检测
+            // if (data.GNSS_staus == 0) {
+            //     AWARN << "定位状态异常" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 207;
+            // }
 
-            // 姿态状态检测
-            if (data.posture_status == 0) {
-                AWARN << "姿态状态异常" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 208;
-            }
+            // // 姿态状态检测
+            // if (data.posture_status == 0) {
+            //     AWARN << "姿态状态异常" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 208;
+            // }
 
             int gps_week = data.gps_week;
             // AERROR<<"==========data.gps_week:"<<data.gps_week;
@@ -679,7 +681,7 @@ void LinuxPcMonitorThread::MonitoringLoop()
         }
 
         // === CPU监控（每10秒更新）===
-        if (data.cpu_usage > 70.0)
+        if (data.cpu_usage > 200.0)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
             pc_state_.alarm_code = 303;

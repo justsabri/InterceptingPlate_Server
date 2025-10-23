@@ -58,6 +58,7 @@ void createMotorInstance(std::vector<std::unique_ptr<VirtualMotor>>& vec) {
 
 int main() {
     if (!canInterfaceExists("can0")) {
+        std::cout << "create can0" << std::endl;
         std::string scriptPath = "../test/setup_vcan.sh";
         int ret = system(scriptPath.c_str());
         if (ret != 0) {

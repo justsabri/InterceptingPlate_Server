@@ -70,7 +70,7 @@ public:
     bool isNeedRead() {
         bool is_need = false;
         time_t curModifyTime = getFileModifyTime(jsonPath_);
-        std::cout << " curModifyTime " << jsonPath_ << ", " << curModifyTime << std::endl;
+        // std::cout << " curModifyTime " << jsonPath_ << ", " << curModifyTime << std::endl;
         is_need = curModifyTime != 0 && curModifyTime != lastModifyTime;
         if (is_need) {
             lastModifyTime = curModifyTime;
@@ -434,7 +434,7 @@ private:
             }
         }
         frame.insert(frame.end(), {0, 0, 0, 0});
-        std::cout << "frame count: " << count + 10 << std::endl;
+        // std::cout << "frame count: " << count + 10 << std::endl;
         return frame;
     };
 

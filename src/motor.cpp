@@ -460,7 +460,7 @@ double MotorParser::getEncoderBatteryVoltage(int can_id)
     sendMotorCommand(can_id, 0x78, {}, PRIORITY_NORMAL);
     auto response = receive(0x78);
     int32_t voltage = parseInt32(response);
-    return static_cast<double>(voltage);
+    return static_cast<double>(voltage)*0.01;
 }
 
 // 设置位置模式、目标位置
@@ -734,8 +734,17 @@ void MotorParser::receiveLoop()
         MotorParamItem *item = getItemByCanCmd(frame.data[0]);
         if (item == nullptr)
         {
-            AERROR << frame.can_id << "不存在！";
+            AERROR << frame.can_id << " " << frame.data[0] << "不存在！";
+            continue;
         }
+
+        // 检查是否为已知电机ID
+        auto data_it = motor_data_.find(frame.can_id);
+        if (data_it == motor_data_.end()) {
+            AINFO << "Ignoring frame from unknown motor ID: " << frame.can_id;
+            continue;
+        }
+
         MotorData *motor_data = &motor_data_[frame.can_id];
         switch (item->type)
         {
@@ -859,7 +868,7 @@ void MotorParser::commandProcessingThread()
             // 输出时间间隔
             // AINFO << "发送命令耗时: " << duration_ms.count() << " 毫秒";
             // AINFO << "发送命令: " << command.can_id << " -------" << command.cmd;
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
     }
 }
@@ -887,10 +896,26 @@ void MotorParser::executeCommand(const MotorCommand &command)
         frame.data[i + 1] = command.data[i];
     }
 
-    if (write(socket_fd, &frame, sizeof(frame)) != sizeof(frame))
-    {
-        AERROR << "Failed to send command: " << static_cast<int>(command.cmd);
+    ssize_t sent = 0;
+    while (sent < sizeof(frame)) {
+        ssize_t n = write(socket_fd, (char*)&frame + sent, sizeof(frame) - sent);
+        if (n > 0) sent += n;
+        else if (n == -1) {
+            AERROR << "error: " << errno << " n: " << sent;
+            if (errno == EAGAIN || errno == 105 /*ECANCELED*/) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1)); // 等待1ms后重试
+            } else {
+                AERROR << "error: " << errno << " " << ECANCELED << " " << EAGAIN;
+                // 处理不可恢复错误
+                break;
+            }
+        }
     }
+    // int ret = write(socket_fd, &frame, sizeof(frame));
+    // if ( ret != sizeof(frame))
+    // {
+    //     AERROR << "Failed to send command: " << static_cast<int>(command.cmd)<< " "<< ret;
+    // }
 }
 
 void MotorParser::sendMotorCommand(int can_id, uint8_t cmd, const std::vector<uint8_t> &data, CommandPriority priority)

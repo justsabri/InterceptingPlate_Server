@@ -13,7 +13,7 @@ int IMURS232::init(const std::string& device, int baud) {
     fd_ = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
     if (fd_ < 0) {
-        AERROR << "open failed"<<std::endl;
+        AERROR << "open failed: " << device <<std::endl;
         return 1;
     }
 

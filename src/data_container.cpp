@@ -31,6 +31,7 @@ InitDeviceStatus DataContainer::initDevice(void){
         MotorParser::getInstance().sendMotorCommand(motor_config_.motor[i],0x0B,{}); //清除电机错误状态
         MotorParser::getInstance().setPositionModeAndTarget(0,motor_config_.motor[i]);//电机恢复0位
         // MotorParser::getInstance().setMaxForwardPosition(113,motor_config_.motor[i]);
+        // MotorParser::getInstance().setPositionOffset(100/360*121*65535,motor_config_.motor[i]);
         // MotorParser::getInstance().flush(motor_config_.motor[i]);
     }
     //  /dev/ttyS8  参照imu_rs232.h中定义修改
@@ -56,7 +57,9 @@ void DataContainer::pcData(PcDataCallback cb) {
 int DataContainer::refreshMotorData(void) {
     for (size_t i = 0; i < motor_config_.motor_num; i++)
     {
-        motor_data_[i] = MotorParser::getInstance().getMotorData(motor_config_.motor[i]);
+        int index = motor_config_.motor[i]; 
+        motor_data_[index] = MotorParser::getInstance().getMotorData(motor_config_.motor[i]);
+        AERROR<< "data_container============电机"<<index<<"编码器电池电压"<<motor_data_[index].encoder_battery_voltage;
     }
     std::lock_guard<std::mutex> lock(motor_mutex_);
     if (callback_motor) {

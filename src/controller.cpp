@@ -42,6 +42,7 @@ void Controller::start() {
     memset(&config_info_, 0, sizeof(Config_Info));
     for (const auto& [motor_id, motor_info] : config["motors"].items()) {
         config_info_.motor_num++;
+        config_info_.motor_id.push_back(std::stoi(motor_id, nullptr, 16));
         if (motor_info["location"] == "left") {
 
 		config_info_.left_motor.push_back(std::stoi(motor_id,nullptr,16));
@@ -112,6 +113,7 @@ void Controller::start() {
             monitor_pack_ = data;
         }
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
+        tryHandleError();
     };
 
     monitor_system_ = std::make_unique<MonitoringSystem>();
@@ -376,7 +378,7 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
                 std::vector<int> m_a_c;
                 for (int i = 0; i < config_info_.motor_num; i++)
                 {
-                    m_a_c.push_back(pack.motor_state[i].alarm_code);
+                    m_a_c.push_back(pack.motor_state[config_info_.motor_id[i]].alarm_code);
                 }
                 
                 j["data"]["devices"] = {
@@ -631,6 +633,10 @@ void Controller::tryHandleError() {
             // 严重报警，停止电机
             need_stop = true;
             break;
+        }
+        if (item.second.alarm_code != 118) {
+            // 控制电机回零
+            
         }
     }
 

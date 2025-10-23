@@ -1,15 +1,7 @@
 {
     "motors" : {
-        "0x001" : {
-            "location" : "left",
-            "motor_offset_positon":0.0
-        },
-        "0x002" : {
-            "location" : "left",
-            "motor_offset_positon":0.0
-        },
         "0x003" : {
-            "location" : "right",
+            "location" : "left",
             "motor_offset_positon":0.0
         },
         "0x004" : {

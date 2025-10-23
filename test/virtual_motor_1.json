@@ -25,7 +25,7 @@
 		"08" : {
 			"discribe" : "position",
 			"type": "degree",
-			"value": 17
+			"value": 100
 		},
 		"54" : {
 			"discribe" : "position_offset",
