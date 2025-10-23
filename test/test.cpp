@@ -4,6 +4,7 @@
 #include <iomanip>
 #include "motor.h"
 #include "log.h"
+#include <nlohmann/json.hpp>
 
 // 电机数据结构
 struct Motor {
@@ -28,19 +29,49 @@ bool is_float(const std::string& s, double& value) {
     }
 }
 
+void createMotorInstance(std::vector<Motor>& vec) {
+    // 读取配置
+    namespace fs = std::filesystem;
+
+    std::string config_path = "config/config.json";
+    std::cout << "JSON" << config_path << std::endl;
+
+    if (!fs::exists(config_path)) {
+        std::cout << "Config file does not exist: " << config_path << std::endl;
+        return;
+    }
+
+    std::ifstream config_file(config_path);
+
+    if (!config_file) {
+        std::cout << "JSON fail" << config_path << std::endl;
+        return;
+    }
+
+    nlohmann::json config = nlohmann::json::parse(config_file);
+
+    for (const auto& [motor_id, motor_info] : config["motors"].items()) {
+        vec.push_back(Motor{std::stoi(motor_id,nullptr,16), 0, 0}); 
+    }
+}
+
 void show_motor_menu(Motor& motor) {
     MotorParser::getInstance().setPositionModeAndTarget(0, motor.id);
     while (true) {
         // 显示电机状态
+        std::cout << "\n===== 电机 " << motor.id << " =====\n";
         motor.position = MotorParser::getInstance().getMotorPosition(motor.id);
         motor.offset = MotorParser::getInstance().getPositionOffset(motor.id);
         double max = MotorParser::getInstance().getMaxForwardPosition(motor.id);
         double min = MotorParser::getInstance().getMinReservePosition(motor.id);
+        double voltage = MotorParser::getInstance().getEncoderBatteryVoltage(motor.id)*0.01;
         std::cout << "\n===== 电机 " << motor.id << " =====\n";
         std::cout << "当前位置: " << motor.position << "°\n";
         std::cout << "偏移位置: " << std::fixed << std::setprecision(0) << motor.offset << "\n";
         std::cout << "最大允许位置: " << max << "°\n";
         std::cout << "最小允许位置: " << min << "°\n";
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "编码器电池电压: " << voltage << " v\n";
         std::cout << "----------------------\n";
         std::cout << "1) 左转 1°\n";
         std::cout << "2) 右转 1°\n";
@@ -141,6 +172,7 @@ void show_motor_menu(Motor& motor) {
 
 int main() {
     InitLog("Test");
+
     // 初始化 4 个电机
     int res = MotorParser::getInstance().init("can0", true);
     if (res != 0) {
@@ -165,16 +197,19 @@ int main() {
         std::cin.get(); // 等待输入
         return 1;
     }
+
     MotorParser::getInstance().stopReceiveThread();
+
     std::vector<Motor> motors;
-    for (int i = 3; i <= 4; ++i) {
-        motors.push_back(Motor{i, 0, 0});
-    }
+    createMotorInstance(motors);
+
+    std::map<int, int> index2id;
     std::cout << "\n----------------------------------------------------------\n";
     while (true) {
         std::cout << "\n===== 主菜单 =====\n";
         for (int i = 0; i < motors.size(); ++i) {
             std::cout << (i + 1) << ") 电机 " << motors[i].id << "\n";
+            index2id.insert({i+1, motors[i].id});
         }
         std::cout << "q) 退出\n";
         std::cout << "> " << std::flush;
@@ -190,15 +225,12 @@ int main() {
 
         try {
             int idx = std::stoi(input);
-
-            for (auto& elem : motors) {
-                if (elem.id == idx) {
-                    show_motor_menu(elem);
-                }
+            if (index2id.find(idx) != index2id.end()) {
+                std::cout << "进入电机" << motors[idx - 1].id << std::endl;
+                show_motor_menu(motors[idx - 1]);
+            } else {
+                std::cout << "无效电机编号。\n";
             }
-
-            // std::cout << "无效电机编号： "  << idx << std::endl;
-
         } catch (...) {
             std::cout << "请输入正确编号。\n";
         }

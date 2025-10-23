@@ -7,6 +7,7 @@
 #include <chrono>
 #include <mutex>
 #include <condition_variable>
+#include "log.h"
 
 class Heartbeat {
 public:
@@ -47,7 +48,6 @@ public:
     void feed() {
         std::lock_guard<std::mutex> lock(mtx);
         lastBeat = std::chrono::steady_clock::now();
-
         // 如果之前是超时状态，现在要恢复
         if (state == State::TIMEOUT) {
             state = State::NORMAL;
@@ -55,6 +55,7 @@ public:
                 recoverCallback();
             }
         }
+
     }
 
     void start() {
@@ -86,8 +87,9 @@ private:
 
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastBeat).count();
-
+                AINFO << "feed lastBeat: ";
                 if (elapsed > timeout && state == State::NORMAL) {
+                    AINFO << "feed timeout: " << elapsed;
                     state = State::TIMEOUT;
                     if (timeoutCallback) {
                         timeoutCallback();

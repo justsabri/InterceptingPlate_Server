@@ -98,6 +98,9 @@ public:
     ~MotorParser();
     //返回值 0:初始化完成   1：创建套接子失败   2：获取CAN接口索引失败   3：绑定CAN套接字失败
     int init(const std::string& can_channel, bool is_test=false);
+    // 发送指令,直接发送
+    void send(int can_id, uint8_t cmd, const std::vector<uint8_t>& data,
+            CommandPriority priority = PRIORITY_NORMAL);
     // 发送指令（添加到队列）
     void sendMotorCommand(int can_id, uint8_t cmd, const std::vector<uint8_t>& data, 
              CommandPriority priority = PRIORITY_NORMAL);

@@ -25,7 +25,7 @@
 		"08" : {
 			"discribe" : "position",
 			"type": "degree",
-			"value": 17
+			"value": 0
 		},
 		"54" : {
 			"discribe" : "position_offset",
@@ -35,7 +35,7 @@
 		"78" : {
 			"discribe" : "encoder_battery_voltage",
 			"type": "fixed",
-			"value": 3800
+			"value": 360
 		},
 		"18" : {
 			"discribe" : "max_forward_speed",

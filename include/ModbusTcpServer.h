@@ -22,6 +22,7 @@ private:
     std::thread serverThread_;
     modbus_t* ctx_ = nullptr;
     modbus_mapping_t* mapping_ = nullptr;
+    int listen_fd_;
 
     uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
     uint8_t reply[MODBUS_TCP_MAX_ADU_LENGTH];

@@ -116,36 +116,37 @@ int MotorParser::init(const std::string &can_channel, bool is_test)
         motor_heartbeat_[id]->setRecoverCallback([this, id](){
             heartbeatRecover(id);
         });
+        motor_heartbeat_[id]->start();
     }
 
     return 0;
 }
 
-// void MotorParser::send(int can_id, uint8_t cmd, const std::vector<uint8_t>& data) {
+void MotorParser::send(int can_id, uint8_t cmd, const std::vector<uint8_t>& data, CommandPriority priority) {
 
-//     std::lock_guard<std::mutex> lock(mtx_);
-//     if (socket_fd < 0) {
-//         AERROR << "Socket not initialized";
-//         return;
-//     }
-//     struct can_frame frame;
-//     frame.can_id = can_id;
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (socket_fd < 0) {
+        AERROR << "Socket not initialized";
+        return;
+    }
+    struct can_frame frame;
+    frame.can_id = can_id;
 
-//     size_t total_len = std::min(data.size() + 1, static_cast<size_t>(8));
-//     frame.can_dlc = static_cast<__u8>(total_len);
+    size_t total_len = std::min(data.size() + 1, static_cast<size_t>(8));
+    frame.can_dlc = static_cast<__u8>(total_len);
 
-//     frame.data[0] = cmd;
+    frame.data[0] = cmd;
 
-//     // AERROR << "----------------MotorParser::send--------------------------";
+    // AERROR << "----------------MotorParser::send--------------------------";
 
-//     for (size_t i = 0; i < total_len - 1; ++i) {
-//         frame.data[i + 1] = data[i];
-//     }
+    for (size_t i = 0; i < total_len - 1; ++i) {
+        frame.data[i + 1] = data[i];
+    }
 
-//     if (write(socket_fd, &frame, sizeof(frame)) == sizeof(frame)) {
+    if (write(socket_fd, &frame, sizeof(frame)) == sizeof(frame)) {
 
-//     }
-// }
+    }
+}
 
 std::vector<uint8_t> MotorParser::receive(uint8_t cmd)
 {
@@ -167,8 +168,9 @@ std::vector<uint8_t> MotorParser::receive(uint8_t cmd)
         //         printf("缓冲区有 %d 字节数据待处理\n", nbytes);
         //     }
         // }
-        // AINFO << "before read";
+        AINFO << "before read";
         nbytes = read(socket_fd, &frame, sizeof(frame));
+        AINFO << "after read";
         if (nbytes < 0)
         {
             AINFO << "=======MotorParser::nbytes=======" << nbytes;
@@ -331,7 +333,7 @@ double MotorParser::getMotorSpeed(int can_id)
 double MotorParser::getMotorPosition(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x08, {}, PRIORITY_NORMAL);
+    send(can_id, 0x08, {}, PRIORITY_NORMAL);
     AINFO << "=======电机：获取电机当前位置=======，发送一字节0x08";
 
     //--------------------------------------------------------------------------------
@@ -421,7 +423,7 @@ double MotorParser::getMinReverseSpeed(int can_id)
 double MotorParser::getMaxForwardPosition(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x1A, {}, PRIORITY_NORMAL);
+    send(can_id, 0x1A, {}, PRIORITY_NORMAL);
     auto response = receive(0x1A);
     return (parseInt32(response) / 65536.0 / gearRatio) * 360.0;
 }
@@ -430,7 +432,7 @@ double MotorParser::getMaxForwardPosition(int can_id)
 double MotorParser::getMinReservePosition(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x1B, {}, PRIORITY_NORMAL);
+    send(can_id, 0x1B, {}, PRIORITY_NORMAL);
     auto response = receive(0x1B);
     return (parseInt32(response) / 65536.0 / gearRatio) * 360.0;
 }
@@ -448,7 +450,7 @@ double MotorParser::getMotorTemperature(int can_id)
 int32_t MotorParser::getPositionOffset(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x54, {}, PRIORITY_NORMAL);
+    send(can_id, 0x54, {}, PRIORITY_NORMAL);
     auto response = receive(0x54);
     return parseInt32(response);
 }
@@ -457,10 +459,10 @@ int32_t MotorParser::getPositionOffset(int can_id)
 double MotorParser::getEncoderBatteryVoltage(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x78, {}, PRIORITY_NORMAL);
+    send(can_id, 0x78, {}, PRIORITY_NORMAL);
     auto response = receive(0x78);
     int32_t voltage = parseInt32(response);
-    return static_cast<double>(voltage)*0.01;
+    return static_cast<double>(voltage);
 }
 
 // 设置位置模式、目标位置
@@ -474,13 +476,13 @@ void MotorParser::setPositionModeAndTarget(double targetAngle, int can_id)
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)};
     AINFO << targetAngle << " " << can_id;
-    sendMotorCommand(can_id, 0x1E, data, PRIORITY_HIGH);
+    send(can_id, 0x1E, data, PRIORITY_HIGH);
 }
 
 // 设置停止模式
 void MotorParser::setStopMode(int can_id)
 {
-    sendMotorCommand(can_id, 0x02, {}, PRIORITY_HIGH);
+    send(can_id, 0x02, {}, PRIORITY_HIGH);
 }
 
 // 设置电机最大正向加速度
@@ -544,7 +546,7 @@ void MotorParser::setMaxForwardPosition(double angleDeg, int can_id)
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)};
     AINFO << "setMaxForwardPosition " << "canid " << can_id << angleDeg;
-    sendMotorCommand(can_id, 0x26, data, PRIORITY_HIGH);
+    send(can_id, 0x26, data, PRIORITY_HIGH);
 }
 
 // 设置最小负向位置
@@ -557,7 +559,7 @@ void MotorParser::setMinReversePosition(double angleDeg, int can_id)
         static_cast<uint8_t>((pos >> 8) & 0xFF),
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x27, data, PRIORITY_HIGH);
+    send(can_id, 0x27, data, PRIORITY_HIGH);
 }
 
 // 设置位置偏移
@@ -569,7 +571,7 @@ void MotorParser::setPositionOffset(int32_t offset, int can_id)
         static_cast<uint8_t>((offset >> 8) & 0xFF),
         static_cast<uint8_t>((offset >> 16) & 0xFF),
         static_cast<uint8_t>((offset >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x53, data, PRIORITY_HIGH);
+    send(can_id, 0x53, data, PRIORITY_HIGH);
 }
 
 // 设置波特率  1000、500、250、125、100、50
@@ -586,7 +588,7 @@ void MotorParser::setBaud(int32_t baud, int can_id)
 
 void MotorParser::flush(int can_id)
 {
-    sendMotorCommand(can_id, 0x0E, {}, PRIORITY_NORMAL);
+    send(can_id, 0x0E, {}, PRIORITY_NORMAL);
 }
 
 // 获取电机数据

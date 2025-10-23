@@ -636,7 +636,7 @@ void Controller::tryHandleError() {
         }
         if (item.second.alarm_code != 118) {
             // 控制电机回零
-            
+            ctrl_motor(0, 0);
         }
     }
 

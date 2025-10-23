@@ -68,6 +68,12 @@ int main() {
 
         // 给内核一点时间创建接口
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    } else {
+        system("sudo ip link set can0 down");
+        sleep(0.5);
+        system("sudo ip link set can0 type can loopback on");
+        sleep(0.5);
+        system("sudo ip link set can0 up");
     }
     createVirtualSerialPort();
     // InitLog("Test");

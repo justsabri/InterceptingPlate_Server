@@ -19,15 +19,15 @@ bool ModbusServer::start(int port) {
         return false;
     }
 
-    mapping_ = modbus_mapping_new(0, 0, 100, 100);
+    mapping_ = modbus_mapping_new(0, 0, 2500, 2500);
     if (!mapping_) {
         std::cerr << "Failed to allocate modbus mapping\n";
         modbus_free(ctx_);
         return false;
     }
 
-    int socket = modbus_tcp_listen(ctx_, 1);
-    if (socket < 0) {
+    listen_fd_ = modbus_tcp_listen(ctx_, 1);
+    if (listen_fd_ < 0) {
         std::cerr << "Listen failed\n";
         return false;
     }
@@ -45,53 +45,65 @@ void ModbusServer::stop() {
 }
 
 void ModbusServer::serverLoop() {
-    int server_socket = modbus_tcp_listen(ctx_, 1);
-    modbus_tcp_accept(ctx_, &server_socket);
+    // int server_socket = modbus_tcp_listen(ctx_, 1);
+    // modbus_tcp_accept(ctx_, &listen_fd_);
 
     while (running_) {
-        int rc = modbus_receive(ctx_, query);
-        if (rc > 0) {
-            uint8_t func_code = query[7];
-            switch (func_code) {
-                case 0x03:
-                    {
-                        uint16_t addr = query[8] << 8 | query[9];
-                        uint16_t count = query[10] << 8 | query[11];
-                        ModbusDataEvent event{"GET", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
-                        bus_.publish("from_modbus", event);
-                        modbus_reply(ctx_, query, rc, mapping_);
-                        break;
-                    }
+        std::cout << "Waiting for new client..." << std::endl;
+        int client_socket = modbus_tcp_accept(ctx_, &listen_fd_);
+        if (client_socket < 0) {
+            perror("modbus_tcp_accept failed");
+            continue;
+        }
+        std::cout << "Client connected." << std::endl;
 
-                case 0x06:
-                    {
-                        uint16_t addr = query[8] << 8 | query[9];
-                        uint16_t count = 1;
-                        ModbusDataEvent event{"POST", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
-                        bus_.publish("from_modbus", event);
-                        modbus_reply(ctx_, query, rc, mapping_);
-                        break;
-                    }
+        while (running_) {
+            int rc = modbus_receive(ctx_, query);
+            if (rc > 0) {
+                uint8_t func_code = query[7];
+                switch (func_code) {
+                    case 0x03:
+                        {
+                            uint16_t addr = query[8] << 8 | query[9];
+                            uint16_t count = query[10] << 8 | query[11];
+                            ModbusDataEvent event{"GET", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
+                            bus_.publish("from_modbus", event);
+                            modbus_reply(ctx_, query, rc, mapping_);
+                            break;
+                        }
 
-                case 0x10:
-                    {
-                        uint16_t addr = query[8] << 8 | query[9];
-                        uint16_t count = query[10] << 8 | query[11];
-                        ModbusDataEvent event{"POST", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
-                        bus_.publish("from_modbus", event);
-                        modbus_reply(ctx_, query, rc, mapping_);
-                        break;
-                    }
+                    case 0x06:
+                        {
+                            uint16_t addr = query[8] << 8 | query[9];
+                            uint16_t count = 1;
+                            ModbusDataEvent event{"POST", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
+                            bus_.publish("from_modbus", event);
+                            modbus_reply(ctx_, query, rc, mapping_);
+                            break;
+                        }
 
-                default:
-                    break;
+                    case 0x10:
+                        {
+                            uint16_t addr = query[8] << 8 | query[9];
+                            uint16_t count = query[10] << 8 | query[11];
+                            ModbusDataEvent event{"POST", addr, count, count*2, (uint8_t*)&mapping_->tab_registers[addr]};
+                            bus_.publish("from_modbus", event);
+                            modbus_reply(ctx_, query, rc, mapping_);
+                            break;
+                        }
+
+                    default:
+                        break;
+                }
+            } else if (rc == -1) {
+                perror("modbus_receive error");
+                std::cerr << "Client disconnected.\n";
+                break; // 跳出内层循环，重新accept新客户端
             }
-
-        } else if (rc == -1) {
-            std::cerr << "Client disconnected\n";
-            modbus_tcp_accept(ctx_, &server_socket);
         }
     }
+
+    close(listen_fd_);
 }
 
 void ModbusServer::returnModbusData(const ModbusDataEvent &event) {

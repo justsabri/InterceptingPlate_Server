@@ -29,7 +29,7 @@ InitDeviceStatus DataContainer::initDevice(void){
     {
         
         MotorParser::getInstance().sendMotorCommand(motor_config_.motor[i],0x0B,{}); //清除电机错误状态
-        MotorParser::getInstance().setPositionModeAndTarget(0,motor_config_.motor[i]);//电机恢复0位
+        // MotorParser::getInstance().setPositionModeAndTarget(0,motor_config_.motor[i]);//电机恢复0位
         // MotorParser::getInstance().setMaxForwardPosition(113,motor_config_.motor[i]);
         // MotorParser::getInstance().setPositionOffset(100/360*121*65535,motor_config_.motor[i]);
         // MotorParser::getInstance().flush(motor_config_.motor[i]);

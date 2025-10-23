@@ -274,16 +274,21 @@ void MotorMonitorThread::MonitoringLoop()
 
             if (elapsed < 10) {
                 // 开机10s内位置监控
-                if (data.position > 2 && data.position > motor_position_offset_.max_deg)
+                if (data.position > 2 && data.position < motor_position_offset_.max_deg - 1)
                 {
-                    if (++error_counters[motor_index][108] >= 1)
+                    if (++error_counters[motor_index][108] == 1)
                     {
-                        AWARN << "电机" << motor_index << "位置超限: "
+                        AWARN << "电机" << motor_index << "初始位置未回零: "
                             << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
                         std::lock_guard<std::mutex> lock(status_mutex_);
-                        motor_state_[motor_index].alarm_code = 108;
+                        // 使用118来让controller控制电机回0
+                        motor_state_[motor_index].alarm_code = 118;
+                    } else if (++error_counters[motor_index][108] > 1) {
+                        if (elapsed > 5) {
+                            std::lock_guard<std::mutex> lock(status_mutex_);
+                            motor_state_[motor_index].alarm_code = 108;
+                        }
                     }
-                    // TODO ： 使用118来让controller控制电机回0
                 }
                 else
                 {
@@ -298,7 +303,9 @@ void MotorMonitorThread::MonitoringLoop()
                         AWARN << "电机" << motor_index << "位置超限: "
                             << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
                         std::lock_guard<std::mutex> lock(status_mutex_);
-                        motor_state_[motor_index].alarm_code = 109;
+                        if (motor_state_[motor_index].alarm_code != 108) {
+                            motor_state_[motor_index].alarm_code = 109;
+                        }
                     }
                 }
                 else
@@ -504,6 +511,7 @@ void ImuMonitorThread::MonitoringLoop()
                 break;
             imu_state_.alarm_code = 201;
             // 断连检测
+            AINFO << "imu monitor: " << data.disconnect;
             if (data.disconnect) {
                 imu_state_.alarm_code = 209;
                 continue;
@@ -525,8 +533,8 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.speed = abs_velocity / 0.514444; 
             // AERROR <<"=======惯导监控线程获取航速；"<<imu_state_.speed;
             // 速度超限检测
-            if (data.north_velocity <= 0 && data.north_velocity > 30.0 &&
-                    data.east_velocity <= 0 && data.east_velocity > 30.0)
+            if (data.north_velocity < 0 || data.north_velocity > 30.0 ||
+                    data.east_velocity < 0 || data.east_velocity > 30.0)
             {
                 AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -534,8 +542,8 @@ void ImuMonitorThread::MonitoringLoop()
             }
 
             // 姿态角范围检测
-            if ((data.roll < -90.0 || data.roll > 90.0) ||
-                (data.pitch < -90.0 || data.pitch > 90.0))
+            if ((data.roll < 0 || data.roll > 40.0) ||
+                (data.pitch < 0 || data.pitch > 40.0))
             {
                 AWARN << "惯导姿态角异常: 横摇=" << data.roll
                       << "°, 纵摇=" << data.pitch << "°" << std::endl;

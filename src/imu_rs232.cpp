@@ -64,7 +64,7 @@ int IMURS232::init(const std::string& device, int baud) {
     tcflush(fd_, TCIOFLUSH);
 
     // 初始化看门狗
-    rs232_heartbeat_ = std::make_unique<Heartbeat>(500, 2000);
+    rs232_heartbeat_ = std::make_unique<Heartbeat>(500, 3000);
     feed_count = 0;
     rs232_heartbeat_->setTimeoutCallback([this](){
         heartbeatTimeout();
@@ -72,6 +72,7 @@ int IMURS232::init(const std::string& device, int baud) {
     rs232_heartbeat_->setRecoverCallback([this](){
         heartbeatRecover();
     });
+    rs232_heartbeat_->start();
 
     return 0;
 }
@@ -113,6 +114,7 @@ int IMURS232::readData() {
     parserData(packet.data());
 
     // 喂狗
+    AINFO << "IMU feed" << feed_count;
     if (feed_count++ == 10) {
         feed_count = 0;
         rs232_heartbeat_->feed();
@@ -283,13 +285,16 @@ void IMURS232::parserData(uint8_t *data){  //参照pdf设置缩放值
     imu_data.posture_status = parseUint8(data + 54);
     imu_data.imu_status_key = parseUint8(data + 55);
     imu_data.imu_work_status = parseUint8(data + 56);
+    AINFO << "parser imu: " << imu_data.disconnect;
     uint32_t crc32 = parseUint32(data + 57);
 }
 
 void IMURS232::heartbeatTimeout() {
+    AINFO << "feed timeout";
     imu_data.disconnect = true;
 }
 
 void IMURS232::heartbeatRecover() {
+    AINFO << "feed recover";
     imu_data.disconnect = false;
 }
