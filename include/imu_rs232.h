@@ -44,6 +44,7 @@ private:
     int fd_ = -1;         // 文件描述符
     std::unique_ptr<Heartbeat> rs232_heartbeat_;
     int feed_count;
+
     //解析数据
     void parserData(uint8_t *data);
     //解析辅助函数

@@ -247,7 +247,7 @@ void IMURS232::parserData(uint8_t *data){  //参照pdf设置缩放值
     //---原始水平惯导布放方式------
     imu_data.roll = parseInt16(data + 30) * 0.01;
     imu_data.pitch = parseInt16(data + 32)* 0.01;
-    imu_data.yaw = parseInt16(data + 34)  * 0.01;
+    imu_data.yaw = parseUint16(data + 34)  * 0.01;
     AERROR<< "------------------------------------------------";
     // 3. 姿态数据
     AERROR << "=== 姿态数据 ===" ;

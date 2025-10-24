@@ -533,8 +533,8 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.speed = abs_velocity / 0.514444; 
             // AERROR <<"=======惯导监控线程获取航速；"<<imu_state_.speed;
             // 速度超限检测
-            if (data.north_velocity < 0 || data.north_velocity > 30.0 ||
-                    data.east_velocity < 0 || data.east_velocity > 30.0)
+            if (data.north_velocity < -40 || data.north_velocity > 40.0 ||
+                    data.east_velocity < -40 || data.east_velocity > 40.0)
             {
                 AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -542,8 +542,8 @@ void ImuMonitorThread::MonitoringLoop()
             }
 
             // 姿态角范围检测
-            if ((data.roll < 0 || data.roll > 40.0) ||
-                (data.pitch < 0 || data.pitch > 40.0))
+            if ((data.roll < -40 || data.roll > 40.0) ||
+                (data.pitch < -40 || data.pitch > 40.0))
             {
                 AWARN << "惯导姿态角异常: 横摇=" << data.roll
                       << "°, 纵摇=" << data.pitch << "°" << std::endl;

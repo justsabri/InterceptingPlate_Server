@@ -113,7 +113,7 @@ void Controller::start() {
             monitor_pack_ = data;
         }
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
-        tryHandleError();
+        // tryHandleError();
     };
 
     monitor_system_ = std::make_unique<MonitoringSystem>();
@@ -629,13 +629,15 @@ void Controller::tryHandleError() {
     // 电机故障
     bool need_stop = false;
     for (auto& item : monitor_pack_.motor_state) {
-        if (item.second.alarm_code != 101 && item.second.alarm_code != 106) {
+        AWARN <<"错误码"<<item.second.alarm_code ;
+        if (item.second.alarm_code != 101 && item.second.alarm_code != 106 && item.second.alarm_code != 118)  {
             // 严重报警，停止电机
             need_stop = true;
             break;
         }
-        if (item.second.alarm_code != 118) {
+        else if (item.second.alarm_code == 118) {
             // 控制电机回零
+            AERROR << "控制电机回零";
             ctrl_motor(0, 0);
         }
     }

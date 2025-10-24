@@ -4,6 +4,7 @@
 #include <modbus/modbus.h>
 #include "event_bus.h"
 #include "data_struct.h"
+#include <unistd.h>
 
 class ModbusServer {
 public:
