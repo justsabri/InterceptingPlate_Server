@@ -134,8 +134,9 @@ void MotorMonitorThread::Stop()
 
 std::map<int, MotorStateData> MotorMonitorThread::GetMotorStatus()
 {
-
+    AINFO << "MOTOR DISCONNECT before ";
     std::lock_guard<std::mutex> lock(status_mutex_);
+    AINFO << "MOTOR DISCONNECT " << motor_state_[3].alarm_code << " " << motor_state_[4].alarm_code;
     return motor_state_;
 }
 
@@ -150,11 +151,14 @@ void MotorMonitorThread::MonitoringLoop()
         std::map<int, MotorData> motors;
 
         // 阻塞等待新数据
-        if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num)
+        if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num) {
             continue;
+        }
+
         for (int i = 0; i < motors.size(); i++)
         { // 遍历所有电机
             int motor_index = motor_position_offset_.motor[i];
+            AINFO << "motor index " << motor_index;
             MotorData data = motors[motor_index];
             motor_state_[motor_index].alarm_code = 101;
             // 电机断连检测
@@ -211,7 +215,7 @@ void MotorMonitorThread::MonitoringLoop()
             }
 
             // 电流超限检测
-            if (data.current > 6250.0)
+            if (data.current > 10000.0)
             {
                 if (++error_counters[motor_index][105] >= 1)
                 {
@@ -274,20 +278,22 @@ void MotorMonitorThread::MonitoringLoop()
 
             if (elapsed < 10) {
                 // 开机10s内位置监控
+                // AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position;
                 if (data.position > 2 && data.position < motor_position_offset_.max_deg - 1)
                 {
-                    if (++error_counters[motor_index][108] == 1)
+                    static int64_t error_elapsed = 0;
+                    if (++error_counters[motor_index][108] >= 1)
                     {
                         AWARN << "电机" << motor_index << "初始位置未回零: "
                             << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
                         std::lock_guard<std::mutex> lock(status_mutex_);
                         // 使用118来让controller控制电机回0
                         motor_state_[motor_index].alarm_code = 118;
-                    } else if (++error_counters[motor_index][108] > 1) {
-                        if (elapsed > 5) {
-                            std::lock_guard<std::mutex> lock(status_mutex_);
-                            motor_state_[motor_index].alarm_code = 108;
-                        }
+                        error_elapsed = elapsed;
+                    }
+                    if (elapsed > error_elapsed + 3) {
+                        std::lock_guard<std::mutex> lock(status_mutex_);
+                        motor_state_[motor_index].alarm_code = 108;
                     }
                 }
                 else
@@ -296,7 +302,9 @@ void MotorMonitorThread::MonitoringLoop()
                 }
             } else {
                 // 开机10s后位置监控
-                if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
+                if (error_counters[motor_index][108] > 0) {
+                    motor_state_[motor_index].alarm_code = 108;
+                } else if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
                 {
                     if (++error_counters[motor_index][109] >= 1)
                     {
@@ -377,6 +385,7 @@ void ImuMonitorThread::MonitoringLoop()
             if (!imu_data_queue.Pop(data))
                 break;
             imu_state_.alarm_code = 201; // 这个代表 惯导正常
+
             // 惯导断连检测
             if (data.disconnect) {
                 imu_state_.alarm_code = 209;
@@ -510,6 +519,7 @@ void ImuMonitorThread::MonitoringLoop()
             if (!imu_data_queue.Pop(data))
                 break;
             imu_state_.alarm_code = 201;
+
             // 断连检测
             AINFO << "imu monitor: " << data.disconnect;
             if (data.disconnect) {
@@ -811,6 +821,7 @@ void MonitoringSystem::CallbackLoop()
         next_run += interval;
         std::this_thread::sleep_until(next_run);
     }
+    AINFO << "callback loop stop";
 }
 
 void MonitoringSystem::MotorSafetyMonitorLoop()

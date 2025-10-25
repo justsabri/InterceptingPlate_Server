@@ -93,13 +93,13 @@ void Controller::start() {
     motor_data_cb = [this](std::map<int, MotorData> data) {
         alg_package_.motor_data = data;
         AWARN<<"传入电机数据=====================";
-        tryProcess();    
+        tryProcess();
     };
     
     imu_data_cb = [this](ImuData data) {
         alg_package_.imu_data = data;
          AWARN<<"传入惯导数据=====================";
-        tryProcess();    
+        tryProcess();
     };
   
      // 初始化电机执行
@@ -113,7 +113,7 @@ void Controller::start() {
             monitor_pack_ = data;
         }
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
-        // tryHandleError();
+        tryHandleError();
     };
 
     monitor_system_ = std::make_unique<MonitoringSystem>();
@@ -629,8 +629,9 @@ void Controller::tryHandleError() {
     // 电机故障
     bool need_stop = false;
     for (auto& item : monitor_pack_.motor_state) {
-        AWARN <<"错误码"<<item.second.alarm_code ;
-        if (item.second.alarm_code != 101 && item.second.alarm_code != 106 && item.second.alarm_code != 118)  {
+        AWARN <<"错误码"<< item.first << " " << item.second.alarm_code ;
+        if (item.second.alarm_code != 101 && item.second.alarm_code != 106
+                && item.second.alarm_code != 118 && item.second.alarm_code != 110)  {
             // 严重报警，停止电机
             need_stop = true;
             break;
