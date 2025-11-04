@@ -1,0 +1,25 @@
+[Unit]
+Description=WebSocket Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/sudo /usr/sbin/ip link set can0 down
+ExecStartPre=/usr/bin/sudo /usr/sbin/ip link set can0 txqueuelen 100
+ExecStartPre=/usr/bin/sudo /usr/sbin/ip link set can0 type can loopback off
+ExecStartPre=/usr/bin/sudo /usr/sbin/ip link set can0 type can bitrate 1000000
+ExecStartPre=/usr/bin/sudo /usr/sbin/ip link set can0 up
+ExecStartPre=/usr/bin/sudo /usr/bin/stty -F /dev/ttyS8 115200 cs8 -cstopb -parenb
+ExecStart=/home/zlg/server/InterceptingPlate_Server/build/websocket_server
+Restart=always
+RestartSec=3s        # 如果程序挂掉，3秒后重启
+WorkingDirectory=/home/zlg/server/InterceptingPlate_Server
+StandardOutput=journal
+StandardError=journal
+Environment=PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+# 增加对网络配置的能力
+AmbientCapabilities=CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

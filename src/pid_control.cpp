@@ -319,6 +319,64 @@ std::pair<float, float> adaptive_PID_speed_control(float current_speed,
 
 
 
+// 协调转弯控制函数 - 基于横倾角的大角度转向
+std::pair<float, float> PID_turn_large_control_by_roll(float current_roll_angle,
+    float left_current,
+    float right_current,
+    float max_extension,
+    PIDController& pid) {
+
+    AINFO << "=============================已进入横倾角大角度转向控制程序=====================";
+    AINFO << "当前横倾角: " << current_roll_angle << "°";
+
+    // 确定横倾方向（假设右倾为正，左倾为负）
+    bool is_right_roll = current_roll_angle > 0;
+    AINFO << "横倾方向: " << (is_right_roll ? "右倾" : "左倾");
+
+    // 大角度转向：使用最大伸缩量作为目标
+    float target_extension = max_extension;
+    AINFO << "大角度横倾，目标伸缩量: " << target_extension << "mm";
+
+    // 根据横倾方向设置控制策略
+    float left_target = 0.0f;
+    float right_target = 0.0f;
+
+    if (is_right_roll) {
+        // 右倾：右侧截流板下放，左侧收回为0
+        float error = target_extension - right_current;
+        float pid_output = pid.compute(error, dt);
+
+        right_target = right_current + error;
+        left_target = 0.0f; // 确保左侧收回为0
+
+        AINFO << "右侧PID计算量: " << pid_output;
+        AINFO << "右侧目标伸缩量: " << right_target << "mm";
+        AINFO << "左侧强制收回为0";
+    }
+    else {
+        // 左倾：左侧截流板下放，右侧收回为0
+        float error = target_extension - left_current;
+        float pid_output = pid.compute(error, dt);
+
+        left_target = left_current + error;
+        right_target = 0.0f; // 确保右侧收回为0
+
+        AINFO << "左侧PID计算量: " << pid_output;
+        AINFO << "左侧目标伸缩量: " << left_target << "mm";
+        AINFO << "右侧强制收回为0";
+    }
+
+    // 应用物理限制
+    float new_left = std::max(0.0f, std::min(left_target, max_extension));
+    float new_right = std::max(0.0f, std::min(right_target, max_extension));
+
+    AINFO << "横倾角大角度转向控制 - 左侧截流板伸缩量: " << new_left << "mm, 右侧截流板伸缩量: " << new_right << "mm";
+
+    return { new_left, new_right };
+}
+
+
+
 // 协调转弯控制函数 - 大角度转向（5°及以上）
 std::pair<float, float> PID_turn_large_control(float current_rudder,
     float left_current,
@@ -716,41 +774,67 @@ PID_Output PID_parameter_transfer(const PID_Input& input) {
         // }
 
 
-        // 获取当前舵角（有符号值，正右负左）
-        // float current_rudder = input.current_rudder.value();//接真实数据时，用该代码
 
-        //虚拟数据，舵角
-        float current_rudder = -3;
-
-
-
-        AINFO << "当前舵角: " << current_rudder << "°";
 
         float current_speed = input.current_speed.value();
         AERROR<<"当前接收到的速度"<<current_speed<<"截流板当前阈值"<<input.max_extension;
 
+        //// 根据舵角大小选择控制策略
+        //// 获取当前舵角（有符号值，正右负左）
+        //// float current_rudder = input.current_rudder.value();//接真实数据时，用该代码
 
+        ////虚拟数据，舵角
+        //float current_rudder = -3;
 
-        // 根据舵角大小选择控制策略
-        float rudder_magnitude = std::abs(current_rudder);
+        //AINFO << "当前舵角: " << current_rudder << "°";
+ 
+        //float rudder_magnitude = std::abs(current_rudder);
+        //std::pair<float, float> result;
+
+        //if (rudder_magnitude >= 5.0f) {
+        //    // 大角度转向控制
+        //    result = PID_turn_large_control(current_rudder,
+        //        input.left_current,
+        //        input.right_current,
+        //        input.max_extension,
+        //        pid_big_turn);
+        //}
+        //else {
+        //    // 小角度转向控制
+        //    result = PID_turn_small_control(current_rudder,
+        //        input.left_current,
+        //        input.right_current,
+        //        input.max_extension,
+        //        pid_small_turn);
+        //}
+
+        // 获取当前横倾角
+        float current_roll_angle = input.heel_current.value();
+        float roll_magnitude = std::abs(current_roll_angle);
         std::pair<float, float> result;
 
-        if (rudder_magnitude >= 5.0f) {
-            // 大角度转向控制
-            result = PID_turn_large_control(current_rudder,
+        // 根据横倾角大小选择控制策略
+        if (roll_magnitude < 4.0f) {
+            // 横倾角小于4°：全部收回
+            AINFO << "横倾角(" << current_roll_angle << "°) < 4°，截流板全部收回";
+            result = { 0.0f, 0.0f };
+        }
+        else if (roll_magnitude >= 4.0f && roll_magnitude <= 6.0f) {
+            // 横倾角在4°-6°范围内：保持当前状态
+            AINFO << "横倾角(" << current_roll_angle << "°) 在4°-6°范围内，保持当前状态";
+            result = { input.left_current, input.right_current };
+        }
+        else {
+            // 横倾角大于6°：进行大角度转向控制
+            AINFO << "横倾角(" << current_roll_angle << "°) > 6°，进入大角度转向控制";
+            result = PID_turn_large_control_by_roll(current_roll_angle,
                 input.left_current,
                 input.right_current,
                 input.max_extension,
                 pid_big_turn);
         }
-        else {
-            // 小角度转向控制
-            result = PID_turn_small_control(current_rudder,
-                input.left_current,
-                input.right_current,
-                input.max_extension,
-                pid_small_turn);
-        }
+
+
 
         new_left = result.first;
         new_right = result.second;

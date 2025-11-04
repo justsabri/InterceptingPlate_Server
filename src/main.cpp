@@ -13,7 +13,9 @@
 int main() {
 #ifdef WEBSOCKET_COMMUNICATION
     // 初始化日志系统，设置应用名称
-    InitLog("WebSocketServer", "/home/zlg/server/0730/InterceptingPlate_new/log", 10);
+    namespace fs = std::filesystem;
+    fs::path log_path = fs::current_path() / "log";
+    InitLog("WebSocketServer", log_path.string().c_str(), 10);
     AINFO<<"start system";
     try {
         // 创建事件总线

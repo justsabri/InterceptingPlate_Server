@@ -569,10 +569,10 @@ void Controller::tryProcess()
         // speed = 10.0; // 模拟的航速  节
         // 20250822 田鸿宇 新算法用到  船舶  舵角参数
         // 船舶当前舵角
-        double current_rudder = -15.0;
+        // double current_rudder = -15.0;
 
-        alg_package_.in.current_speed = speed;
-        alg_package_.in.current_rudder = current_rudder;
+        // alg_package_.in.current_speed = speed;
+        // alg_package_.in.current_rudder = current_rudder;
         //---------------------1、航速最优测试，只变航速-------------------------------------
 
 
@@ -589,22 +589,22 @@ void Controller::tryProcess()
         //---------------------2、纵倾/摇最优数据--------------------------------------
         // 20250822 田鸿宇
         // 纵倾/摇最优
-        int speed_int = (int)speed;
-        // 左侧伸出量
-        alg_package_.in.pitch_current = simulation_angle(std::max(alg_package_.in.left_current, alg_package_.in.right_current));
-        //---------------------3、横倾/摇最优数据--------------------------------------
-        // 将最大值赋值给函数
-        if (alg_package_.in.left_current > alg_package_.in.right_current)
-            alg_package_.in.heel_current  = simulation_angle(alg_package_.in.left_current);
-        else
-         alg_package_.in.heel_current  = simulation_angle(alg_package_.in.right_current);
+        // int speed_int = (int)speed;
+        // // 左侧伸出量
+        // alg_package_.in.pitch_current = simulation_angle(std::max(alg_package_.in.left_current, alg_package_.in.right_current));
+        // //---------------------3、横倾/摇最优数据--------------------------------------
+        // // 将最大值赋值给函数
+        // if (alg_package_.in.left_current > alg_package_.in.right_current)
+        //     alg_package_.in.heel_current  = simulation_angle(alg_package_.in.left_current);
+        // else
+        //  alg_package_.in.heel_current  = simulation_angle(alg_package_.in.right_current);
 
-        if (alg_package_.in.heel_current.has_value()) {
-        AINFO << "========横摇数据：" << alg_package_.in.heel_current.value() << "=============";
-        } 
-        else {
-        AINFO << "========横摇数据：无数据=============";
-        }
+        // if (alg_package_.in.heel_current.has_value()) {
+        // AINFO << "========横摇数据：" << alg_package_.in.heel_current.value() << "=============";
+        // } 
+        // else {
+        // AINFO << "========横摇数据：无数据=============";
+        // }
 
 
 

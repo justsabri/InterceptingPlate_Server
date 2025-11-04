@@ -158,7 +158,7 @@ static void LogCleanerTask()
 //-----------------------------日志初始化-----------------------------
 // 日志初始化
 static void InitLog(const char *module_name = "MyApp",
-                    const char *log_dir = "/home/zlg/server/0730/InterceptingPlate_new/log",
+                    const char *log_dir = "/home/zlg/server/InterceptingPlate_Server/log",
                     int max_log_files = 5)
 {
   namespace fs = std::filesystem;
