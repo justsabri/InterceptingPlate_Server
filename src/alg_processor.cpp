@@ -14,7 +14,7 @@
 #include <log.h>
 
 // 构造函数：初始化 stopFlag
-AlgProcessor::AlgProcessor() : stop_flag_(false), save_data_(true), thread_pool_(1)
+AlgProcessor::AlgProcessor() : stop_flag_(false), save_data_(false), thread_pool_(1)
 {
   if (save_data_)
   {

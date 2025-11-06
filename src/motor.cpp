@@ -21,7 +21,8 @@ MotorParamItem g_param_table[] = {
     {"min_reverse_speed", PARAM_TYPE_THETA, offsetof(MotorData, min_reverse_speed), 0x19},              // 最大后向速度  获取频率1hz
     {"max_forward_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, max_forward_position), 0x1A},   // 最大前向位置偏移  获取频率1hz
     {"min_reverse_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, min_reverse_position), 0x1B},   // 最大后向位置偏移  获取频率1hz
-    {"temperature", PARAM_TYPE_DOUBLE, offsetof(MotorData, temperature), 0x31}};                        // 电机温度 获取频率1hz
+    {"temperature", PARAM_TYPE_DOUBLE, offsetof(MotorData, temperature), 0x31}                        // 电机温度 获取频率1hz
+};
 
 // ====================== MotorParser单例实现 ======================
 MotorParser &MotorParser::getInstance()
@@ -137,7 +138,7 @@ void MotorParser::send(int can_id, uint8_t cmd, const std::vector<uint8_t>& data
 
     frame.data[0] = cmd;
 
-    // AERROR << "----------------MotorParser::send--------------------------";
+    // AERROR << "----------------MotorParser::send--------------------------" <<  static_cast<int>(cmd);
 
     for (size_t i = 0; i < total_len - 1; ++i) {
         frame.data[i + 1] = data[i];
@@ -476,6 +477,20 @@ void MotorParser::setPositionModeAndTarget(double targetAngle, int can_id)
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)};
     AINFO << targetAngle << " " << can_id;
+    sendMotorCommand(can_id, 0x1E, data, PRIORITY_HIGH);
+}
+
+// 设置位置模式、目标位置
+void MotorParser::setPositionModeAndTargetAsync(double targetAngle, int can_id)
+{
+    // std::lock_guard<std::mutex> lock(mtx_);
+    int32_t pos = static_cast<int32_t>((targetAngle / 360.0) * gearRatio * 65536.0);
+    std::vector<uint8_t> data = {
+        static_cast<uint8_t>(pos & 0xFF),
+        static_cast<uint8_t>((pos >> 8) & 0xFF),
+        static_cast<uint8_t>((pos >> 16) & 0xFF),
+        static_cast<uint8_t>((pos >> 24) & 0xFF)};
+    AINFO << targetAngle << " " << can_id;
     send(can_id, 0x1E, data, PRIORITY_HIGH);
 }
 
@@ -711,7 +726,7 @@ void MotorParser::receiveLoop()
         //     }
         // }
 
-        // AINFO << "before read";
+        // AINFO << "receive data begin!";
         nbytes = read(socket_fd, &frame, sizeof(frame));
         if (nbytes < 0)
         {
@@ -870,7 +885,7 @@ void MotorParser::commandProcessingThread()
             // 输出时间间隔
             // AINFO << "发送命令耗时: " << duration_ms.count() << " 毫秒";
             // AINFO << "发送命令: " << command.can_id << " -------" << command.cmd;
-            // std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 }
@@ -898,13 +913,24 @@ void MotorParser::executeCommand(const MotorCommand &command)
         frame.data[i + 1] = command.data[i];
     }
 
+    std::ostringstream oss;
+    oss << "send data=" << frame.can_id;
+    for (int i = 0; i < frame.can_dlc; i++)
+    {
+        oss << " " << std::hex << static_cast<int>(frame.data[i]);
+    }
+    AINFO << oss.str();
+
     ssize_t sent = 0;
     while (sent < sizeof(frame)) {
         ssize_t n = write(socket_fd, (char*)&frame + sent, sizeof(frame) - sent);
-        if (n > 0) sent += n;
+        if (n > 0) {
+            sent += n;
+        }
         else if (n == -1) {
             AERROR << "error: " << errno << " n: " << sent;
             if (errno == EAGAIN || errno == 105 /*ECANCELED*/) {
+                break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(1)); // 等待1ms后重试
             } else {
                 AERROR << "error: " << errno << " " << ECANCELED << " " << EAGAIN;

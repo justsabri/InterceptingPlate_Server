@@ -127,6 +127,7 @@ public:
     double getEncoderBatteryVoltage(int can_id);    // 获取编码器电池电压
 
     void setPositionModeAndTarget(double targetAngle,int can_id);   // 设置位置模式、目标位置
+    void setPositionModeAndTargetAsync(double targetAngle, int can_id);
     void setMaxForwardAcceleration(int32_t acceleration,int can_id);    // 设置电机最大正向加速度
     void setMinReverseAcceleration(int32_t acceleration,int can_id);    // 设置电机最小负向加速度
     void setMaxForwardSpeed(double speedDeg,int can_id);    // 设置最大正向允许速度

@@ -136,7 +136,7 @@ std::map<int, MotorStateData> MotorMonitorThread::GetMotorStatus()
 {
     AINFO << "MOTOR DISCONNECT before ";
     std::lock_guard<std::mutex> lock(status_mutex_);
-    AINFO << "MOTOR DISCONNECT " << motor_state_[3].alarm_code << " " << motor_state_[4].alarm_code;
+    // AINFO << "MOTOR DISCONNECT " << motor_state_[3].alarm_code << " " << motor_state_[4].alarm_code;
     return motor_state_;
 }
 
@@ -168,20 +168,20 @@ void MotorMonitorThread::MonitoringLoop()
             }
             // === 异常检测处理 ===
             // 温度异常检测
-            if (data.temperature > 68.0)
-            {
-                if (++error_counters[motor_index][102] >= 1)
-                { // 连续5次检测到异常
-                    AWARN << "电机" << motor_index << "温度异常: "
-                          << data.temperature << "℃" << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    motor_state_[motor_index].alarm_code = 102;
-                }
-                else
-                {
-                    error_counters[motor_index][102] = 0; // 恢复正常时重置计数
-                }
-            }
+            // if (data.temperature > 68.0)
+            // {
+            //     if (++error_counters[motor_index][102] >= 1)
+            //     { // 连续5次检测到异常
+            //         AWARN << "电机" << motor_index << "温度异常: "
+            //               << data.temperature << "℃" << std::endl;
+            //         std::lock_guard<std::mutex> lock(status_mutex_);
+            //         motor_state_[motor_index].alarm_code = 102;
+            //     }
+            //     else
+            //     {
+            //         error_counters[motor_index][102] = 0; // 恢复正常时重置计数
+            //     }
+            // }
 
             // 状态异常检测
             if (data.status.has_error())
@@ -199,36 +199,36 @@ void MotorMonitorThread::MonitoringLoop()
             }
 
             // 电压异常检测
-            if (data.voltage < 45.0 || data.voltage > 50.0)
-            {
-                if (++error_counters[motor_index][104] >= 3)
-                {
-                    AWARN << "电机" << motor_index << "电压异常: "
-                          << data.voltage << "V" << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    motor_state_[motor_index].alarm_code = 104;
-                }
-                else
-                {
-                    error_counters[motor_index][104] = 0;
-                }
-            }
+            // if (data.voltage < 45.0 || data.voltage > 50.0)
+            // {
+            //     if (++error_counters[motor_index][104] >= 3)
+            //     {
+            //         AWARN << "电机" << motor_index << "电压异常: "
+            //               << data.voltage << "V" << std::endl;
+            //         std::lock_guard<std::mutex> lock(status_mutex_);
+            //         motor_state_[motor_index].alarm_code = 104;
+            //     }
+            //     else
+            //     {
+            //         error_counters[motor_index][104] = 0;
+            //     }
+            // }
 
             // 电流超限检测
-            if (data.current > 10000.0)
-            {
-                if (++error_counters[motor_index][105] >= 1)
-                {
-                    AWARN << "电机" << motor_index << "电流过大: "
-                          << data.current << "mA" << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    motor_state_[motor_index].alarm_code = 105;
-                }
-                else
-                {
-                    error_counters[motor_index][105] = 0;
-                }
-            }
+            // if (data.current > 10000.0)
+            // {
+            //     if (++error_counters[motor_index][105] >= 1)
+            //     {
+            //         AWARN << "电机" << motor_index << "电流过大: "
+            //               << data.current << "mA" << std::endl;
+            //         std::lock_guard<std::mutex> lock(status_mutex_);
+            //         motor_state_[motor_index].alarm_code = 105;
+            //     }
+            //     else
+            //     {
+            //         error_counters[motor_index][105] = 0;
+            //     }
+            // }
             AERROR<<"电机"<<motor_index<<"编码器电池电压"<<data.encoder_battery_voltage;
             // 电池电压异常检测
             //获取的电压*0.01为实际电压
@@ -278,7 +278,7 @@ void MotorMonitorThread::MonitoringLoop()
 
             if (elapsed < 10) {
                 // 开机10s内位置监控
-                // AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position;
+                AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position;
                 if (data.position > 2 && data.position < motor_position_offset_.max_deg - 1)
                 {
                     static int64_t error_elapsed = 0;

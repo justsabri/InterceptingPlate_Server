@@ -56,7 +56,7 @@ void createMotorInstance(std::vector<Motor>& vec) {
 }
 
 void show_motor_menu(Motor& motor) {
-    MotorParser::getInstance().setPositionModeAndTarget(0, motor.id);
+    MotorParser::getInstance().setPositionModeAndTargetAsync(0, motor.id);
     while (true) {
         // 显示电机状态
         std::cout << "\n===== 电机 " << motor.id << " =====\n";
@@ -92,10 +92,10 @@ void show_motor_menu(Motor& motor) {
         if (input == "b" || input == "B") {
             break; // 返回上一级
         } else if (input == "1") {
-            MotorParser::getInstance().setPositionModeAndTarget(motor.position-1, motor.id);
+            MotorParser::getInstance().setPositionModeAndTargetAsync(motor.position-1, motor.id);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         } else if (input == "2") {
-            MotorParser::getInstance().setPositionModeAndTarget(motor.position+1, motor.id);
+            MotorParser::getInstance().setPositionModeAndTargetAsync(motor.position+1, motor.id);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         } else if (input == "3") {
             std::cout << "请输入需要左转的角度：（正数）\n";
@@ -107,7 +107,7 @@ void show_motor_menu(Motor& motor) {
                 continue;
             }
             motor.position -= theta;
-            MotorParser::getInstance().setPositionModeAndTarget(motor.position, motor.id);
+            MotorParser::getInstance().setPositionModeAndTargetAsync(motor.position, motor.id);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         } else if (input == "4") {
             std::cout << "请输入需要右转的角度：（正数）\n";
@@ -119,7 +119,7 @@ void show_motor_menu(Motor& motor) {
                 continue;
             }
             motor.position += theta;
-            MotorParser::getInstance().setPositionModeAndTarget(motor.position, motor.id);
+            MotorParser::getInstance().setPositionModeAndTargetAsync(motor.position, motor.id);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));    
         } else if (input == "5") {
             std::cout << "请输入目标角度：【" << min <<"-" << max << "°】\n";
@@ -131,7 +131,7 @@ void show_motor_menu(Motor& motor) {
                 continue;
             }
             motor.position = theta;
-            MotorParser::getInstance().setPositionModeAndTarget(motor.position, motor.id);
+            MotorParser::getInstance().setPositionModeAndTargetAsync(motor.position, motor.id);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         } else if (input == "6") {
             int32_t target_offset = motor.position/360*121*65535 + motor.offset;
