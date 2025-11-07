@@ -192,10 +192,8 @@ void MotorMonitorThread::MonitoringLoop()
                     std::lock_guard<std::mutex> lock(status_mutex_);
                     motor_state_[motor_index].alarm_code = 103;
                 }
-                else
-                {
-                    error_counters[motor_index][103] = 0;
-                }
+            } else {
+                error_counters[motor_index][103] = 0;
             }
 
             // 电压异常检测
@@ -208,10 +206,10 @@ void MotorMonitorThread::MonitoringLoop()
             //         std::lock_guard<std::mutex> lock(status_mutex_);
             //         motor_state_[motor_index].alarm_code = 104;
             //     }
-            //     else
-            //     {
-            //         error_counters[motor_index][104] = 0;
-            //     }
+            // }
+            // else
+            // {
+            //     error_counters[motor_index][104] = 0;
             // }
 
             // 电流超限检测
@@ -224,14 +222,14 @@ void MotorMonitorThread::MonitoringLoop()
             //         std::lock_guard<std::mutex> lock(status_mutex_);
             //         motor_state_[motor_index].alarm_code = 105;
             //     }
-            //     else
-            //     {
-            //         error_counters[motor_index][105] = 0;
-            //     }
+            // }
+            // else
+            // {
+            //     error_counters[motor_index][105] = 0;
             // }
             AERROR<<"电机"<<motor_index<<"编码器电池电压"<<data.encoder_battery_voltage;
             // 电池电压异常检测
-            //获取的电压*0.01为实际电压
+            // 获取的电压*0.01为实际电压
             if (data.encoder_battery_voltage >= 290 && data.encoder_battery_voltage <= 320)
             {
                 if (++error_counters[motor_index][106] >= 1)
@@ -251,11 +249,11 @@ void MotorMonitorThread::MonitoringLoop()
                     std::lock_guard<std::mutex> lock(status_mutex_);
                     motor_state_[motor_index].alarm_code = 107;
                 }
-                else
-                {
-                    error_counters[motor_index][106] = 0;
-                    error_counters[motor_index][107] = 0;
-                }
+            }
+            else
+            {
+                error_counters[motor_index][106] = 0;
+                error_counters[motor_index][107] = 0;
             }
             double current_altitude_offset = (data.position_offset / 6619136.0) * 360.0;
             double motor_offset_positon = (motor_position_offset_.motor_position_offset[i] / 360.0) * 6619136.0;
@@ -510,6 +508,8 @@ void ImuMonitorThread::MonitoringLoop()
     //=================================================================================
     else
     {
+        // 为惯导每个状态添加计数器
+        std::map<int, int> error_counters; // <错误类型, 计数>
         // 正常 运行
         while (running_)
         {
@@ -589,17 +589,25 @@ void ImuMonitorThread::MonitoringLoop()
             // 定位状态检测
             // AINFO << "data.GNSS_staus " << data.GNSS_staus;
             if (data.GNSS_staus == 0) {
-                AWARN << "定位状态异常" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 207;
+                if (++error_counters[207] >= 3) {
+                    AWARN << "定位状态异常" << std::endl;
+                    std::lock_guard<std::mutex> lock(status_mutex_);
+                    imu_state_.alarm_code = 207;
+                }
+            } else {
+                error_counters[207] = 0;
             }
 
             // AINFO << "data.posture_status " << data.posture_status;
             // 姿态状态检测
             if (data.posture_status == 0) {
-                AWARN << "姿态状态异常" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 208;
+                if (++error_counters[208] >= 3) {
+                    AWARN << "姿态状态异常" << std::endl;
+                    std::lock_guard<std::mutex> lock(status_mutex_);
+                    imu_state_.alarm_code = 208;
+                }
+            } else {
+                error_counters[208] = 0;
             }
 
             int gps_week = data.gps_week;
