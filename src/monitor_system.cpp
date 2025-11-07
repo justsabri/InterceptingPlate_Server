@@ -586,19 +586,21 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.latitude = data.latitude;
             imu_state_.longitude = data.longitude;
 
-            // // 定位状态检测
-            // if (data.GNSS_staus == 0) {
-            //     AWARN << "定位状态异常" << std::endl;
-            //     std::lock_guard<std::mutex> lock(status_mutex_);
-            //     imu_state_.alarm_code = 207;
-            // }
+            // 定位状态检测
+            // AINFO << "data.GNSS_staus " << data.GNSS_staus;
+            if (data.GNSS_staus == 0) {
+                AWARN << "定位状态异常" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 207;
+            }
 
-            // // 姿态状态检测
-            // if (data.posture_status == 0) {
-            //     AWARN << "姿态状态异常" << std::endl;
-            //     std::lock_guard<std::mutex> lock(status_mutex_);
-            //     imu_state_.alarm_code = 208;
-            // }
+            // AINFO << "data.posture_status " << data.posture_status;
+            // 姿态状态检测
+            if (data.posture_status == 0) {
+                AWARN << "姿态状态异常" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 208;
+            }
 
             int gps_week = data.gps_week;
             // AERROR<<"==========data.gps_week:"<<data.gps_week;
