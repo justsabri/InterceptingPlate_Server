@@ -1,7 +1,9 @@
 #include "motor_controller.h"
 #include "log.h"
 void MotorController::control_motor(Command cmd, int can_id, std::variant<double, int32_t> value){
+    AINFO<<"=============================="<<allow_ctrl_;
     if (!allow_ctrl_) {
+
         return;
     }
     std::lock_guard<std::mutex> lock(mtx_);

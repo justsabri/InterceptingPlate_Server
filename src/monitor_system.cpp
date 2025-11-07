@@ -278,8 +278,8 @@ void MotorMonitorThread::MonitoringLoop()
 
             if (elapsed < 10) {
                 // 开机10s内位置监控
-                AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position;
-                if (data.position > 2 && data.position < motor_position_offset_.max_deg - 1)
+                AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position << "count " << error_counters[motor_index][108];
+                if (data.position > 2 && data.position < motor_position_offset_.max_deg + 0.5)
                 {
                     static int64_t error_elapsed = 0;
                     if (++error_counters[motor_index][108] >= 1)
