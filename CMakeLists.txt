@@ -162,5 +162,6 @@ if (ENABLE_VIRTUAL_DEVICES)
 
     # 串口修改为虚拟串口
     target_compile_definitions(websocket_server PUBLIC VIRTUAL_TEST)
+    target_compile_definitions(modbustcp_server PUBLIC VIRTUAL_TEST)
 
 endif()

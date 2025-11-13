@@ -114,7 +114,7 @@ int IMURS232::readData() {
     parserData(packet.data());
 
     // 喂狗
-    AINFO << "IMU feed" << feed_count;
+    // AINFO << "IMU feed" << feed_count;
     if (feed_count++ == 10) {
         feed_count = 0;
         rs232_heartbeat_->feed();

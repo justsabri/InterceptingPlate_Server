@@ -632,9 +632,9 @@ void MotorParser::flush(int can_id)
 
 MotorData MotorParser::getMotorData(int can_id)
 {
-    AINFO << "---------queryAll查询前------ " << "canid " << can_id;
+    // AINFO << "---------queryAll查询前------ " << "canid " << can_id;
     queryAll(can_id);
-    AINFO << "---------queryAll查询后------ " << "canid " << can_id;
+    // AINFO << "---------queryAll查询后------ " << "canid " << can_id;
     // std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_));
     return motor_data_[can_id];
 }

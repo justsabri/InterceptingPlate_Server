@@ -53,7 +53,7 @@ void Controller::start() {
 
         }
     }
-
+    AINFO << "num " << config_info_.motor_num << "num addr " << std::hex << &config_info_.motor_num;
     config_info_.max_ext = config["max_ext"].get<float>();
     config_info_.ext2deg.a = config["ext2deg"]["a"].get<float>();
     config_info_.ext2deg.b = config["ext2deg"]["b"].get<float>();
@@ -273,23 +273,27 @@ void Controller::handle_message(const ModbusDataEvent &event) {
             }
         }},
         {"speed", (void*)((uint8_t*)&monitor_pack_ + offsetof(DataPack, imu_state) + offsetof(ImuStateData, speed)), 0x2001, nullptr},
-        {"ext_left", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.left_motor[0]].plate, 0x2003, nullptr},
-        {"ext_right", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.right_motor[0]].plate, 0x2005, nullptr},
-        {"motor_num", (void*)(uint8_t*)&config_info_.motor_num, 0x2007, nullptr},
-        {"motor1_state", (void*)(uint8_t*)&monitor_pack_.motor_state[1].alarm_code, 0x2008, nullptr},
-        {"motor2_state", (void*)(uint8_t*)&monitor_pack_.motor_state[2].alarm_code, 0x2009, nullptr},
-        {"motor3_state", (void*)(uint8_t*)&monitor_pack_.motor_state[3].alarm_code, 0x2010, nullptr},
-        {"motor4_state", (void*)(uint8_t*)&monitor_pack_.motor_state[4].alarm_code, 0x2011, nullptr},
-        {"imu_state", (void*)(uint8_t*)&monitor_pack_.imu_state.alarm_code, 0x2012, nullptr},
-        {"pc_state", (void*)(uint8_t*)&monitor_pack_.pc_state.alarm_code, 0x2013, nullptr},
-        {"yaw", (void*)(uint8_t*)&monitor_pack_.imu_state.yaw, 0x2014, nullptr},
-        {"pitch", (void*)(uint8_t*)&monitor_pack_.imu_state.pitch, 0x2016, nullptr},
-        {"roll", (void*)(uint8_t*)&monitor_pack_.imu_state.roll, 0x2018, nullptr},
+        {"ext_left_limit", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.left_motor[0]].plate, 0x2003, nullptr},
+        {"ext_right_limit", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.right_motor[0]].plate, 0x2005, nullptr},
+        {"ext_left", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.left_motor[0]].plate, 0x2007, nullptr},
+        {"ext_right", (void*)(uint8_t*)&monitor_pack_.motor_state[config_info_.right_motor[0]].plate, 0x2009, nullptr},
+        {"motor_num", (void*)(uint8_t*)&config_info_.motor_num, 0x2011, nullptr},
+        {"motor1_state", (void*)(uint8_t*)&monitor_pack_.motor_state[1].alarm_code, 0x2012, nullptr},
+        {"motor2_state", (void*)(uint8_t*)&monitor_pack_.motor_state[2].alarm_code, 0x2013, nullptr},
+        {"motor3_state", (void*)(uint8_t*)&monitor_pack_.motor_state[3].alarm_code, 0x2014, nullptr},
+        {"motor4_state", (void*)(uint8_t*)&monitor_pack_.motor_state[4].alarm_code, 0x2015, nullptr},
+        {"imu_state", (void*)(uint8_t*)&monitor_pack_.imu_state.alarm_code, 0x2016, nullptr},
+        {"pc_state", (void*)(uint8_t*)&monitor_pack_.pc_state.alarm_code, 0x2017, nullptr},
+        {"yaw", (void*)(uint8_t*)&monitor_pack_.imu_state.yaw, 0x2018, nullptr},
+        {"pitch", (void*)(uint8_t*)&monitor_pack_.imu_state.pitch, 0x2020, nullptr},
+        {"roll", (void*)(uint8_t*)&monitor_pack_.imu_state.roll, 0x2022, nullptr},
     };
 
 
+    AINFO << event.func << " " << std::hex << event.addr << " " << event.count;
     for (int i = 0; i < sizeof(modbus_param_table)/sizeof(ModbusParamItem); i++) {
         ModbusParamItem& item = modbus_param_table[i];
+        // AINFO << "addr: " << item.modbus_addr << " " << event.addr;
         if (item.modbus_addr == event.addr) {
             if (event.func == "POST") {
                 memcpy(item.pointer, event.frame, event.len);
@@ -297,7 +301,37 @@ void Controller::handle_message(const ModbusDataEvent &event) {
                     thread_pool_.enqueue([this, item](Controller* ctl){item.handler_ptr(ctl); }, this);
                 }
             } else if (event.func == "GET") {
-                memcpy(event.frame, item.pointer, event.len);
+                AINFO << item.name << " " <<std::hex<< item.pointer;
+                if (item.name == "ext_left") {
+                    float v = thetaToY(monitor_pack_.motor_state[config_info_.left_motor[0]].plate) / config_info_.max_ext;
+                    AINFO << "V " << v;
+                    memcpy(event.frame, &v, event.len);
+                } else if (item.name == "ext_right") {
+                    float v = thetaToY(monitor_pack_.motor_state[config_info_.right_motor[0]].plate) / config_info_.max_ext;
+                    memcpy(event.frame, &v, event.len);
+                    AINFO << "V " << v;
+                } else if (item.name == "ext_left_limit" || item.name == "ext_right_limit") {
+                    float v = safe_ext_.getMaxExtensionRatio(monitor_pack_.imu_state.speed);
+                    memcpy(event.frame, &v, event.len);
+                    AINFO << "V " << v;
+                } else {
+                    memcpy(event.frame, item.pointer, event.len);
+                }
+
+                uint16_t num = event.frame[1] << 8 | event.frame[0];
+                AINFO << "creply " << static_cast<int>(num);
+                if (event.len == 4) {
+                    int32_t value =
+                        static_cast<int32_t>(event.frame[3]) |
+                        (static_cast<int32_t>(event.frame[2]) << 8) |
+                        (static_cast<int32_t>(event.frame[1]) << 16) |
+                        (static_cast<int32_t>(event.frame[0]) << 24);
+                    AINFO << "creply4 " << static_cast<float>(value) << " " << *(float*)item.pointer;
+                    AINFO << std::hex << static_cast<int32_t>(event.frame[0]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[1]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[2]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[3]);
+                }
             }
             break;
         }

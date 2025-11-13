@@ -134,7 +134,7 @@ void MotorMonitorThread::Stop()
 
 std::map<int, MotorStateData> MotorMonitorThread::GetMotorStatus()
 {
-    AINFO << "MOTOR DISCONNECT before ";
+    // AINFO << "MOTOR DISCONNECT before ";
     std::lock_guard<std::mutex> lock(status_mutex_);
     // AINFO << "MOTOR DISCONNECT " << motor_state_[3].alarm_code << " " << motor_state_[4].alarm_code;
     return motor_state_;

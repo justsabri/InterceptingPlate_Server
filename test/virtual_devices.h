@@ -186,6 +186,9 @@ private:
                     pi.value = (pi.value * 121 * 100) / 360.0;
                     std::cout << pi.describe << " convert value " << pi.value << std::endl;
                 }
+                if (pi.describe == "position") {
+                    extension_ = pi.value;
+                }
                 // TODO: 清空 protocol_ 后重新添加
                 protocol_[cmd] = pi;
             }
@@ -270,6 +273,9 @@ private:
         tx.data[0] = static_cast<uint8_t>(std::stoi(cmd, nullptr, 16));
 
         int32_t pos = static_cast<int32_t>(pi.value);
+        if (cmd == "1E") {
+            pos = static_cast<int32_t>(extension_);
+        }
         std::vector<uint8_t> data = {
             static_cast<uint8_t>(pos & 0xFF),
             static_cast<uint8_t>((pos >> 8) & 0xFF),
@@ -305,6 +311,8 @@ private:
     time_t lastModifyTime;
     std::mutex protocol_mtx_;
     std::thread tLoad_;
+
+    float extension_ = 0;
 };
 
 class VirtualImu : public JsonHelper {
