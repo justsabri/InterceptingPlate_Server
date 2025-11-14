@@ -168,20 +168,20 @@ void MotorMonitorThread::MonitoringLoop()
             }
             // === 异常检测处理 ===
             // 温度异常检测
-            // if (data.temperature > 68.0)
-            // {
-            //     if (++error_counters[motor_index][102] >= 1)
-            //     { // 连续5次检测到异常
-            //         AWARN << "电机" << motor_index << "温度异常: "
-            //               << data.temperature << "℃" << std::endl;
-            //         std::lock_guard<std::mutex> lock(status_mutex_);
-            //         motor_state_[motor_index].alarm_code = 102;
-            //     }
-            //     else
-            //     {
-            //         error_counters[motor_index][102] = 0; // 恢复正常时重置计数
-            //     }
-            // }
+            if (data.temperature > 85.0)
+            {
+                if (++error_counters[motor_index][102] >= 1)
+                { // 连续5次检测到异常
+                    AWARN << "电机" << motor_index << "温度异常: "
+                          << data.temperature << "℃" << std::endl;
+                    std::lock_guard<std::mutex> lock(status_mutex_);
+                    motor_state_[motor_index].alarm_code = 102;
+                }
+                else
+                {
+                    error_counters[motor_index][102] = 0; // 恢复正常时重置计数
+                }
+            }
 
             // 状态异常检测
             if (data.status.has_error())
@@ -390,7 +390,7 @@ void ImuMonitorThread::MonitoringLoop()
                 continue;
             }
             // === 异常检测处理 ===
-            if (data.temperature > 68.0)
+            if (data.temperature > 85.0)
             {
                 AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
@@ -702,14 +702,14 @@ void LinuxPcMonitorThread::MonitoringLoop()
 
         // === 主监控项（每100秒更新）===
         // 温度异常检测
-        if (data.temperature > 68.0)
+        if (data.temperature > 85.0)
         {
             AWARN << "PC温度异常: " << data.temperature << "℃" << std::endl;
             pc_state_.alarm_code = 302;
         }
 
         // === CPU监控（每10秒更新）===
-        if (data.cpu_usage > 200.0)
+        if (data.cpu_usage > 100.0)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
             pc_state_.alarm_code = 303;
