@@ -19,6 +19,9 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
 #endif
     alg_processor_ = std::make_unique<AlgProcessor>();
     motor_ctrl_ = std::make_unique<MotorController>();
+
+    ctl_params_.auto_mode = 0xFF;
+    ctl_params_.auto_mode = 0xFF;
 }
 
 void Controller::start() {
@@ -233,19 +236,28 @@ static void auto_ctrl(void* ptr) {
     if (!ptr)
         return;
     Controller* ctl = (Controller*)ptr;
-    if (ctl->ctl_params_.mode == 0) {
+    AINFO << "modbus auto ctrl " << ctl->ctl_params_.mode << " " << ctl->ctl_params_.auto_mode << " " << ctl->last_ctl_params_.mode;
+    ctl->last_ctl_params_.mode = ctl->ctl_params_.mode;
+    if (ctl->ctl_params_.mode == 0 && ctl->last_ctl_params_.mode != 0) {
         // 清除自动模式的资源
         DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, ctl);
         DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl);
         // 控制 moter_ctrl执行对应命令
         ctl->ctrl_motor(0, 0);
     } else if (ctl->ctl_params_.mode == 1) {
+        if (ctl->ctl_params_.auto_mode == 0xFF) {
+            return;
+        }
+        ctl->auto_mode_ = ctl->ctl_params_.auto_mode;
+        if (ctl->last_ctl_params_.mode == 1) {
+            return;
+        }
         DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, ctl);
         DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl);
         // 控制 moter_ctrl执行对应命令
         ctl->ctrl_motor(0, 0);
         std::this_thread::sleep_for(std::chrono::milliseconds(1300));
-        ctl->auto_mode_ = ctl->ctl_params_.auto_mode;
+        
         // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
         DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, ctl->imu_data_cb, ctl);
         DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, ctl->motor_data_cb, ctl);
@@ -257,19 +269,32 @@ void Controller::handle_message(const ModbusDataEvent &event) {
         {"mode", &ctl_params_.mode, 0x1001, auto_ctrl},
         {"ctl_ext_left", &ctl_params_.ext_left, 0x1002, [](void* ptr){
             Controller* ctl = (Controller*)ptr;
-            double degree = ctl->yToTheta(ctl->ctl_params_.ext_left);
+            if (std::fabs(ctl->ctl_params_.ext_left - ctl->last_ctl_params_.ext_left) < 0.001) {
+                return;
+            }
+            AINFO << "modbus ext " << std::fabs(ctl->ctl_params_.ext_left - ctl->last_ctl_params_.ext_left);
+            ctl->last_ctl_params_.ext_left = ctl->ctl_params_.ext_left;
+            double degree = ctl->yToTheta(ctl->ctl_params_.ext_left * ctl->config_info_.max_ext);
+            AINFO << "modbus " << degree << " " << ctl->ctl_params_.ext_left;
             ctl->ctrl_motor(degree, std::nullopt);
         }},
         {"ctl_ext_right", &ctl_params_.ext_right, 0x1004, [](void* ptr){
             Controller* ctl = (Controller*)ptr;
-            double degree = ctl->yToTheta(ctl->ctl_params_.ext_right);
+            if (std::fabs(ctl->ctl_params_.ext_right - ctl->last_ctl_params_.ext_right) < 0.001) {
+                return;
+            }
+            ctl->last_ctl_params_.ext_right = ctl->ctl_params_.ext_right;
+            double degree = ctl->yToTheta(ctl->ctl_params_.ext_right * ctl->config_info_.max_ext);
+            AINFO << "modbus " << degree << " " << ctl->ctl_params_.ext_right;
             ctl->ctrl_motor(std::nullopt, degree);
         }},
         {"auto_mode", (void*)(uint8_t*)&ctl_params_.auto_mode, 0x1006, auto_ctrl},
         {"rudder", (void*)(uint8_t*)&ctl_params_.rudder, 0x1007, [](void* ptr){
             Controller* ctl = (Controller*)ptr;
+            AINFO << "modbus rudder" << ctl->ctl_params_.rudder;
             if (ctl->alg_package_.imu_data.has_value()) {
                 ctl->alg_package_.imu_data.value().current_rudder = ctl->ctl_params_.rudder;
+                AINFO << "modbus " << ctl->ctl_params_.rudder;
             }
         }},
         {"speed", (void*)((uint8_t*)&monitor_pack_ + offsetof(DataPack, imu_state) + offsetof(ImuStateData, speed)), 0x2001, nullptr},
@@ -297,6 +322,20 @@ void Controller::handle_message(const ModbusDataEvent &event) {
         if (item.modbus_addr == event.addr) {
             if (event.func == "POST") {
                 memcpy(item.pointer, event.frame, event.len);
+
+                if (event.len == 4) {
+                    int32_t value =
+                        static_cast<int32_t>(event.frame[3]) |
+                        (static_cast<int32_t>(event.frame[2]) << 8) |
+                        (static_cast<int32_t>(event.frame[1]) << 16) |
+                        (static_cast<int32_t>(event.frame[0]) << 24);
+                    AINFO << "creply4 " << static_cast<float>(value);
+                    AINFO << "creply4 " << std::hex << static_cast<int32_t>(event.frame[0]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[1]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[2]) << " "
+                          << std::hex << static_cast<int32_t>(event.frame[3]);
+                }
+
                 if (item.handler_ptr) {
                     thread_pool_.enqueue([this, item](Controller* ctl){item.handler_ptr(ctl); }, this);
                 }
@@ -663,7 +702,7 @@ void Controller::tryHandleError() {
     // 电机故障
     bool need_stop = false;
     for (auto& item : monitor_pack_.motor_state) {
-        AWARN <<"错误码"<< item.first << " " << item.second.alarm_code ;
+        // AWARN <<"错误码"<< item.first << " " << item.second.alarm_code ;
         if (item.second.alarm_code != 101 && item.second.alarm_code != 106
                 && item.second.alarm_code != 118 && item.second.alarm_code != 110)  {
             // 严重报警，停止电机

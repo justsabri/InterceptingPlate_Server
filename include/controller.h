@@ -42,6 +42,7 @@ public:
     DataPack monitor_pack_;
     std::unique_ptr<MotorController> motor_ctrl_;
     ctrl_params ctl_params_;
+    ctrl_params last_ctl_params_;
     std::function<void(ImuData data)> imu_data_cb;
     std::function<void(std::map<int, MotorData> data)> motor_data_cb;
     int auto_mode_;

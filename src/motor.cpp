@@ -11,16 +11,16 @@
 
 MotorParamItem g_param_table[] = {
     {"status", PARAM_TYPE_ERROR, offsetof(MotorData, status), 0x0A},                                    // 状态 获取频率1hz
-    {"mode", PARAM_TYPE_STRING, offsetof(MotorData, mode), 0x03},                                       // 模式 获取频率1hz
-    {"voltage", PARAM_TYPE_DOUBLE, offsetof(MotorData, voltage), 0x14},                                 // 电压 获取频率1hz
-    {"current", PARAM_TYPE_DOUBLE, offsetof(MotorData, current), 0x04},                                 // 电机电流 获取频率10hz
+    // {"mode", PARAM_TYPE_STRING, offsetof(MotorData, mode), 0x03},                                       // 模式 获取频率1hz
+    // {"voltage", PARAM_TYPE_DOUBLE, offsetof(MotorData, voltage), 0x14},                                 // 电压 获取频率1hz
+    // {"current", PARAM_TYPE_DOUBLE, offsetof(MotorData, current), 0x04},                                 // 电机电流 获取频率10hz
     {"position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, position), 0x08},                           // 电机位置 获取频率=电机频率
-    {"position_offset", PARAM_TYPE_INT32, offsetof(MotorData, position_offset), 0x54},                  // 电机位置偏移
+    // {"position_offset", PARAM_TYPE_INT32, offsetof(MotorData, position_offset), 0x54},                  // 电机位置偏移
     {"encoder_battery_voltage", PARAM_TYPE_DOUBLE, offsetof(MotorData, encoder_battery_voltage), 0x78}, // 电机编码器电池电压  获取频率1hz
-    {"max_forward_speed", PARAM_TYPE_THETA, offsetof(MotorData, max_forward_speed), 0x18},              // 最大前向速度  获取频率1hz
-    {"min_reverse_speed", PARAM_TYPE_THETA, offsetof(MotorData, min_reverse_speed), 0x19},              // 最大后向速度  获取频率1hz
-    {"max_forward_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, max_forward_position), 0x1A},   // 最大前向位置偏移  获取频率1hz
-    {"min_reverse_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, min_reverse_position), 0x1B},   // 最大后向位置偏移  获取频率1hz
+    // {"max_forward_speed", PARAM_TYPE_THETA, offsetof(MotorData, max_forward_speed), 0x18},              // 最大前向速度  获取频率1hz
+    // {"min_reverse_speed", PARAM_TYPE_THETA, offsetof(MotorData, min_reverse_speed), 0x19},              // 最大后向速度  获取频率1hz
+    // {"max_forward_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, max_forward_position), 0x1A},   // 最大前向位置偏移  获取频率1hz
+    // {"min_reverse_position", PARAM_TYPE_CODERTHETA, offsetof(MotorData, min_reverse_position), 0x1B},   // 最大后向位置偏移  获取频率1hz
     {"temperature", PARAM_TYPE_DOUBLE, offsetof(MotorData, temperature), 0x31}                        // 电机温度 获取频率1hz
 };
 
@@ -930,7 +930,9 @@ void MotorParser::executeCommand(const MotorCommand &command)
         else if (n == -1) {
             AERROR << "error: " << errno << " n: " << sent;
             if (errno == EAGAIN || errno == 105 /*ECANCELED*/) {
-                break;
+                if (command.priority == PRIORITY_NORMAL) {
+                    break;
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1)); // 等待1ms后重试
             } else {
                 AERROR << "error: " << errno << " " << ECANCELED << " " << EAGAIN;

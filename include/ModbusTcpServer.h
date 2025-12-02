@@ -17,6 +17,8 @@ public:
 private:
     void serverLoop();
     void returnModbusData(const ModbusDataEvent& event);
+    void changeByteOrder(uint8_t* data, size_t len);
+    void changeWordOrder(uint8_t* data, size_t len);
 
     EventBus& bus_;
     std::atomic<bool> running_{false};

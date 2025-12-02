@@ -96,6 +96,8 @@ MotorMonitorThread::MotorMonitorThread()
         float offset = motor_info["motor_offset_positon"].get<double>();
         motor_position_offset_.motor_position_offset.push_back(offset);
 
+        // 4.初始化电机状态
+        motor_state_[std::stoi(motor_id, nullptr, 16)].alarm_code = 101;
          // 获取最大转动角度
         motor_position_offset_.max_deg = config["ext2deg"]["x_max"].get<float>() - config["ext2deg"]["x_min"].get<float>();
     }
@@ -334,6 +336,7 @@ ImuMonitorThread::ImuMonitorThread()
             imu_data_queue.Push(raw_data);
         },
         this);
+    imu_state_.alarm_code = 201;
 }
 
 ImuMonitorThread::~ImuMonitorThread()
@@ -588,27 +591,27 @@ void ImuMonitorThread::MonitoringLoop()
 
             // 定位状态检测
             // AINFO << "data.GNSS_staus " << data.GNSS_staus;
-            if (data.GNSS_staus == 0) {
-                if (++error_counters[207] >= 3) {
-                    AWARN << "定位状态异常" << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    imu_state_.alarm_code = 207;
-                }
-            } else {
-                error_counters[207] = 0;
-            }
+            // if (data.GNSS_staus == 0) {
+            //     if (++error_counters[207] >= 3) {
+            //         AWARN << "定位状态异常" << std::endl;
+            //         std::lock_guard<std::mutex> lock(status_mutex_);
+            //         imu_state_.alarm_code = 207;
+            //     }
+            // } else {
+            //     error_counters[207] = 0;
+            // }
 
-            // AINFO << "data.posture_status " << data.posture_status;
-            // 姿态状态检测
-            if (data.posture_status == 0) {
-                if (++error_counters[208] >= 3) {
-                    AWARN << "姿态状态异常" << std::endl;
-                    std::lock_guard<std::mutex> lock(status_mutex_);
-                    imu_state_.alarm_code = 208;
-                }
-            } else {
-                error_counters[208] = 0;
-            }
+            // // AINFO << "data.posture_status " << data.posture_status;
+            // // 姿态状态检测
+            // if (data.posture_status == 0) {
+            //     if (++error_counters[208] >= 3) {
+            //         AWARN << "姿态状态异常" << std::endl;
+            //         std::lock_guard<std::mutex> lock(status_mutex_);
+            //         imu_state_.alarm_code = 208;
+            //     }
+            // } else {
+            //     error_counters[208] = 0;
+            // }
 
             int gps_week = data.gps_week;
             // AERROR<<"==========data.gps_week:"<<data.gps_week;
@@ -653,6 +656,7 @@ LinuxPcMonitorThread::LinuxPcMonitorThread()
             pc_data_queue.Push(raw_data);
         },
         this);
+    pc_state_.alarm_code = 301;
 }
 
 LinuxPcMonitorThread::~LinuxPcMonitorThread()

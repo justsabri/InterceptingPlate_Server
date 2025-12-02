@@ -17,7 +17,7 @@
             "motor_offset_positon":0.0
         }
     },
-    "motor_freq" : 5,
+    "motor_freq" : 10,
     "imu_freq" : 30,
     "pc_freq" : 1,
     "cb_freq" : 1,
