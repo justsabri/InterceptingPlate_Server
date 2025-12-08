@@ -43,12 +43,10 @@ InitDeviceStatus DataContainer::initDevice(void){
 //     AWARN << "初始化惯导"<<init_device_status_.imu;
 //     return init_device_status_;
     //初始化udp server
-    udp_server_(9090);
-
     // 启动UDP服务器（单函数调用完成所有初始化和启动）
     if (!udp_server_.start()) {
         AERROR << "服务器启动失败，程序退出" << std::endl;
-        return 1;
+        init_device_status_.imu = 1;
     }
 }
 

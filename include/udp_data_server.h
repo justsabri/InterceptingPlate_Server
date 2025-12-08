@@ -6,6 +6,10 @@
 #include <mutex>
 #include <atomic>
 #include <thread>
+// 添加网络编程所需的头文件
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "data_struct.h"
 #include "log.h"
 

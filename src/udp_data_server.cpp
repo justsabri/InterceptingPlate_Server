@@ -11,7 +11,7 @@
 #include <errno.h>
 
 UdpDataServer::UdpDataServer(int port_num) 
-    : port(port_num), 
+    : port(9090), 
       is_running(false),
       server_fd(-1) {
     
@@ -204,7 +204,7 @@ ImuData UdpDataServer::parseData(const uint8_t* buffer, size_t length) {
 bool UdpDataServer::validateData(const ImuData& data) {
     // 根据图片表格中的取值范围进行验证
     if (data.roll < -40.0f || data.roll > 40.0f) {
-        AERROR << "横倾角超出范围: " << data.roll << "° (范围: -40°~40°)" << ;
+        AERROR << "横倾角超出范围: " << data.roll << "° (范围: -40°~40°)"  ;
         return false;
     }
     

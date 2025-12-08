@@ -399,23 +399,23 @@ void ImuMonitorThread::MonitoringLoop()
                 break;
             imu_state_.alarm_code = 201; // 这个代表 惯导正常
 
-            // 惯导断连检测
-            if (data.disconnect)
-            {
-                imu_state_.alarm_code = 209;
-                continue;
-            }
+            // // 惯导断连检测
+            // if (data.disconnect)
+            // {
+            //     imu_state_.alarm_code = 209;
+            //     continue;
+            // }
             // === 异常检测处理 ===
-            if (data.temperature > 85.0)
-            {
-                AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 202; // 惯导温度异常
-            }
+            // if (data.temperature > 85.0)
+            // {
+            //     AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 202; // 惯导温度异常
+            // }
 
-            // 计算绝对速度 (1节 = 0.514444 m/s)
-            float abs_velocity = sqrt(pow(data.north_velocity, 2) +
-                                      pow(data.east_velocity, 2));
+            // // 计算绝对速度 (1节 = 0.514444 m/s)
+            // float abs_velocity = sqrt(pow(data.north_velocity, 2) +
+            //                           pow(data.east_velocity, 2));
 
             //=================================================================================
             double speed_kn = 0.0;            // 模拟的航速  节
@@ -491,34 +491,34 @@ void ImuMonitorThread::MonitoringLoop()
             //---------------------1、船舶当前舵角-------------------------------------
             //=================================================================================
             // 经纬度范围检测
-            if ((data.longitude < 73.0 || data.longitude > 136.0) ||
-                (data.latitude < 3.0 || data.latitude > 54.0))
-            {
-                AWARN << "惯导经纬度异常: 经度=" << data.longitude
-                      << "°, 纬度=" << data.latitude << "°" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 206;
-            }
-            imu_state_.latitude = data.latitude;
-            imu_state_.longitude = data.longitude;
+            // if ((data.longitude < 73.0 || data.longitude > 136.0) ||
+            //     (data.latitude < 3.0 || data.latitude > 54.0))
+            // {
+            //     AWARN << "惯导经纬度异常: 经度=" << data.longitude
+            //           << "°, 纬度=" << data.latitude << "°" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 206;
+            // }
+            // imu_state_.latitude = data.latitude;
+            // imu_state_.longitude = data.longitude;
 
-            int gps_week = data.gps_week;
-            double gps_tow = data.gps_millisecond * 0.001;
+            // int gps_week = data.gps_week;
+            // double gps_tow = data.gps_millisecond * 0.001;
 
-            // 转换为UTC时间戳
-            time_t utcTimestamp = gpsToUtc(gps_week, gps_tow);
+            // // 转换为UTC时间戳
+            // time_t utcTimestamp = gpsToUtc(gps_week, gps_tow);
 
-            // 转换为北京时间（UTC+8）
-            time_t beijingTimestamp = utcTimestamp + 8 * 3600;
-            struct tm *beijingTime = gmtime(&beijingTimestamp);
+            // // 转换为北京时间（UTC+8）
+            // time_t beijingTimestamp = utcTimestamp + 8 * 3600;
+            // struct tm *beijingTime = gmtime(&beijingTimestamp);
 
-            // 格式化和输出北京时间（仅到秒）
-            std::stringstream bjSS;
-            bjSS << std::put_time(beijingTime, "%Y-%m-%d %H:%M:%S");
-            // AERROR<<"===========time" << bjSS.str();
-            imu_state_.gps_time = bjSS.str();
+            // // 格式化和输出北京时间（仅到秒）
+            // std::stringstream bjSS;
+            // bjSS << std::put_time(beijingTime, "%Y-%m-%d %H:%M:%S");
+            // // AERROR<<"===========time" << bjSS.str();
+            // imu_state_.gps_time = bjSS.str();
 
-            imu_state_.yaw = data.yaw;
+            // imu_state_.yaw = data.yaw;
         }
     }
     //=================================================================================
@@ -537,12 +537,12 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.alarm_code = 201;
 
             // 断连检测
-            AINFO << "imu monitor: " << data.disconnect;
-            if (data.disconnect)
-            {
-                imu_state_.alarm_code = 209;
-                continue;
-            }
+            // AINFO << "imu monitor: " << data.disconnect;
+            // if (data.disconnect)
+            // {
+            //     imu_state_.alarm_code = 209;
+            //     continue;
+            // }
             // === 异常检测处理 ===
             // if (data.temperature > 68)
             // {
@@ -624,7 +624,7 @@ void ImuMonitorThread::MonitoringLoop()
             // 主机转速检测
             if (data.rpm < 0 || data.rpm > 5000.0)
             {
-                AWARN << "主机转速异常:主机转速=" << data.main_engine_rpm << "rpm" << std::endl;
+                AWARN << "主机转速异常:主机转速=" << data.rpm << "rpm" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
                 imu_state_.alarm_code = 207;
             }

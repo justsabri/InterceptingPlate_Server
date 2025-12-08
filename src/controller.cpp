@@ -293,7 +293,7 @@ void Controller::handle_message(const ModbusDataEvent &event) {
             Controller* ctl = (Controller*)ptr;
             AINFO << "modbus rudder" << ctl->ctl_params_.rudder;
             if (ctl->alg_package_.imu_data.has_value()) {
-                ctl->alg_package_.imu_data.value().current_rudder = ctl->ctl_params_.rudder;
+                ctl->alg_package_.imu_data.value().rudder = ctl->ctl_params_.rudder;
                 AINFO << "modbus " << ctl->ctl_params_.rudder;
             }
         }},
@@ -309,7 +309,7 @@ void Controller::handle_message(const ModbusDataEvent &event) {
         {"motor4_state", (void*)(uint8_t*)&monitor_pack_.motor_state[4].alarm_code, 0x2015, nullptr},
         {"imu_state", (void*)(uint8_t*)&monitor_pack_.imu_state.alarm_code, 0x2016, nullptr},
         {"pc_state", (void*)(uint8_t*)&monitor_pack_.pc_state.alarm_code, 0x2017, nullptr},
-        {"yaw", (void*)(uint8_t*)&monitor_pack_.imu_state.yaw, 0x2018, nullptr},
+        // {"yaw", (void*)(uint8_t*)&monitor_pack_.imu_state.yaw, 0x2018, nullptr},
         {"pitch", (void*)(uint8_t*)&monitor_pack_.imu_state.pitch, 0x2020, nullptr},
         {"roll", (void*)(uint8_t*)&monitor_pack_.imu_state.roll, 0x2022, nullptr},
     };
@@ -391,9 +391,6 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
                 AINFO << "MOTOR " << config_info_.motor_num << " " << pack.motor_state.size();
                 j["data"]["navigation"] = {
                     {"enable", true},
-                    {"yaw",pack.imu_state.yaw},
-                    {"latitude", pack.imu_state.latitude},
-                    {"longitude", pack.imu_state.longitude},
                     {"speed", pack.imu_state.speed}
                 };
                 alg_package_.in.max_extension = safe_ext_.getMaxExtensionRatio(pack.imu_state.speed) * config_info_.max_ext;
@@ -626,15 +623,15 @@ void Controller::tryProcess()
     if (alg_package_.motor_data.has_value() && alg_package_.imu_data.has_value()) {
         AWARN<<"向自动控制算法传入数据=========================";
         alg_package_.in.mode = auto_mode_;
-        alg_package_.in.current_heading = alg_package_.imu_data.value().heading;
+        // alg_package_.in.current_heading = alg_package_.imu_data.value().heading;
         //---------------------1、船舶当前舵角-------------------------------------
         // 20250822 田鸿宇 新算法用到  船舶  舵角参数
         // 船舶当前舵角
         // alg_package_.in.current_rudder = alg_package_.imu_data.value().current_rudder;
         //---------------------1、船舶当前舵角-------------------------------------
-        float n_s = alg_package_.imu_data.value().north_velocity;
-        float e_s = alg_package_.imu_data.value().east_velocity;
-        float speed = std::sqrt(n_s * n_s + e_s * e_s) * 1.94384;
+        // float n_s = alg_package_.imu_data.value().north_velocity;
+        // float e_s = alg_package_.imu_data.value().east_velocity;
+        float speed = alg_package_.imu_data.value().speed;
         alg_package_.in.current_speed = speed;
 
         //---------------------1、航速最优测试，只变航速-------------------------------------
