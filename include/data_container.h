@@ -10,7 +10,8 @@
 #include <thread>
 
 #include "motor.h"
-#include "imu_rs232.h"
+#include "udp_data_server.h"
+// #include "imu_rs232.h"
 #include "data_struct.h"
 #include "pc.h"
 
@@ -24,7 +25,8 @@ public:
     //返回值:motor and imu InitdeviceStatus struct
     InitDeviceStatus initDevice(void);
 private:
-    IMURS232   imu;
+    // IMURS232   imu;
+    UdpDataServer udp_server_;
     LinuxPc    pc;
 
         // 线程控制相关变量

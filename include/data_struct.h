@@ -5,53 +5,65 @@
 #include <map>
 #include <cstdint>
 
-// 传感器数据结构体
-struct ImuData
-{
-  uint8_t imu_status_key = 0; // IMU状态字    bit0:1 GNSS数据有效 bit1:1 PPS信号有效 bit2:1 初始化有效
-                              //             bit4-3: 11 GNSS板卡初始化成功
-  uint8_t imu_work_status = 0; // IMU 工作状态 1:对准  2：陀螺零位标定  7：纯惯性导航  9：与GNSS组合导航
-  // GPS数据
-  uint16_t gps_week = 0;        // GPS周计数
-  uint32_t gps_millisecond = 0; // GPS周内秒
-  uint8_t GNSS_staus = 0;       // GNSS定位状态 0：不可用或无效  1：单点定位  2：差分定位  3：GPS PPS模式
-                          // 4：RTK固定解 5：RTK浮点解 6：惯导模式 7：手动输入模式  8：模拟器模式
-  bool disconnect = false;
-  // 姿态数据
-  double yaw = 2.5;           // 艏向角
-  double pitch = 0.0;         // 纵倾角
-  double roll = 0.0;          // 横倾角
-  uint8_t satellite_num = 0;  // 卫星数量
-  uint8_t posture_status = 0; // 姿态有效位 0：无效  1：有效
+// // 传感器数据结构体
+// struct ImuData
+// {
+//   uint8_t imu_status_key = 0; // IMU状态字    bit0:1 GNSS数据有效 bit1:1 PPS信号有效 bit2:1 初始化有效
+//                               //             bit4-3: 11 GNSS板卡初始化成功
+//   uint8_t imu_work_status = 0; // IMU 工作状态 1:对准  2：陀螺零位标定  7：纯惯性导航  9：与GNSS组合导航
+//   // GPS数据
+//   uint16_t gps_week = 0;        // GPS周计数
+//   uint32_t gps_millisecond = 0; // GPS周内秒
+//   uint8_t GNSS_staus = 0;       // GNSS定位状态 0：不可用或无效  1：单点定位  2：差分定位  3：GPS PPS模式
+//                           // 4：RTK固定解 5：RTK浮点解 6：惯导模式 7：手动输入模式  8：模拟器模式
+//   bool disconnect = false;
+//   // 姿态数据
+//   double yaw = 2.5;           // 艏向角
+//   double pitch = 0.0;         // 纵倾角
+//   double roll = 0.0;          // 横倾角
+//   uint8_t satellite_num = 0;  // 卫星数量
+//   uint8_t posture_status = 0; // 姿态有效位 0：无效  1：有效
 
-  // 位置数据
-  double latitude = 0.0;  // 经度
-  double longitude = 0.0; // 纬度
+//   // 位置数据
+//   double latitude = 0.0;  // 经度
+//   double longitude = 0.0; // 纬度
 
-  // 速度数据
-  double altitude = 0.0;       // 海拔
-  double north_velocity = 0.0; // 北向速度
-  double east_velocity = 0.0;  // 东向速度
-  double down_velocity = 0.0;  // 地向速度
+//   // 速度数据
+//   double altitude = 0.0;       // 海拔
+//   double north_velocity = 0.0; // 北向速度
+//   double east_velocity = 0.0;  // 东向速度
+//   double down_velocity = 0.0;  // 地向速度
 
-  // 陀螺数据
-  double gyro_x = 0.0;  // 陀螺仪x轴
-  double gyro_y = 0.0;  // 陀螺仪y轴
-  double gyro_z = 0.0;  // 陀螺仪z轴
-  double heading = 0.0; // 双天线航向角
+//   // 陀螺数据
+//   double gyro_x = 0.0;  // 陀螺仪x轴
+//   double gyro_y = 0.0;  // 陀螺仪y轴
+//   double gyro_z = 0.0;  // 陀螺仪z轴
+//   double heading = 0.0; // 双天线航向角
 
-  // 加速度与温度
-  double acc_x = 0.0;       // 加速度计x轴
-  double acc_y = 0.0;       // 加速度计y轴
-  double acc_z = 0.0;       // 加速度计z轴
-  double temperature = 0.0; // 温度
-  uint8_t antenna_type = 0; // 双天线航向角类型
+//   // 加速度与温度
+//   double acc_x = 0.0;       // 加速度计x轴
+//   double acc_y = 0.0;       // 加速度计y轴
+//   double acc_z = 0.0;       // 加速度计z轴
+//   double temperature = 0.0; // 温度
+//   uint8_t antenna_type = 0; // 双天线航向角类型
 
-  //---------------------1、船舶当前舵角-------------------------------------
-  // 20250822 田鸿宇 新算法用到  船舶  舵角参数
-  double current_rudder;   // 船舶当前舵角
-  //---------------------1、船舶当前舵角-------------------------------------
+//   //---------------------1、船舶当前舵角-------------------------------------
+//   // 20250822 田鸿宇 新算法用到  船舶  舵角参数
+//   double current_rudder;   // 船舶当前舵角
+//   //---------------------1、船舶当前舵角-------------------------------------
+// };
+
+// 根据表格定义的外部信息系统数据结构
+#pragma pack(push, 1)  // 确保1字节对齐，防止编译器填充
+struct ImuData {
+    float roll;          // 横倾角 (-40°~40°)
+    float pitch;         // 纵倾角 (-30°~30°)
+    float rudder;        // 舵角 (-30°~30°)
+    float speed;         // 航速 (0~80kn)
+    float rpm;           // 主机转速 (0~5000rpm)
+    uint32_t timestamp;  // UNIX时间戳
 };
+#pragma pack(pop)
 
 // 电机错误状态结构体
 struct MotorErrorStatus {
@@ -115,10 +127,8 @@ struct ImuStateData
   uint16_t alarm_code;       // 惯导状态码
   float pitch;          // 纵倾角
   float roll;           // 横倾角
-  float latitude;       // 经度
-  float longitude;      // 纬度
   float speed;          // 航速
-  float yaw;            // 艏向角
+  float rpm;           // 主机转速 (0~5000rpm)
   std::string gps_time; // GPS时间（北京时间，年月日时分秒）
   //---------------------1、船舶当前舵角-------------------------------------
   // 20250822 田鸿宇 新算法用到  船舶  舵角参数

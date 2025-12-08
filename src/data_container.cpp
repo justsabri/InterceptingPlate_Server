@@ -35,13 +35,21 @@ InitDeviceStatus DataContainer::initDevice(void){
         // MotorParser::getInstance().flush(motor_config_.motor[i]);
     }
     //  /dev/ttyS8  参照imu_rs232.h中定义修改
-    std::string device = "/dev/ttyS8";
-#ifdef VIRTUAL_TEST
-    device = "/tmp/ttyV1";
-#endif
-    init_device_status_.imu = imu.init(device,115200);
-    AWARN << "初始化惯导"<<init_device_status_.imu;
-    return init_device_status_;
+//     std::string device = "/dev/ttyS8";
+// #ifdef VIRTUAL_TEST
+//     device = "/tmp/ttyV1";
+// #endif
+//     init_device_status_.imu = imu.init(device,115200);
+//     AWARN << "初始化惯导"<<init_device_status_.imu;
+//     return init_device_status_;
+    //初始化udp server
+    udp_server_(9090);
+
+    // 启动UDP服务器（单函数调用完成所有初始化和启动）
+    if (!udp_server_.start()) {
+        AERROR << "服务器启动失败，程序退出" << std::endl;
+        return 1;
+    }
 }
 
 void DataContainer::motorData(MotorDataCallback cb) {
@@ -60,6 +68,7 @@ int DataContainer::refreshMotorData(void) {
         int index = motor_config_.motor[i]; 
         motor_data_[index] = MotorParser::getInstance().getMotorData(motor_config_.motor[i]);
         AERROR<< "data_container============电机"<<index<<"编码器电池电压"<<motor_data_[index].encoder_battery_voltage;
+        AERROR<< "data_container============电机"<<index<<"当前角度"<<motor_data_[index].position;
     }
     std::lock_guard<std::mutex> lock(motor_mutex_);
     if (callback_motor) {
@@ -69,15 +78,22 @@ int DataContainer::refreshMotorData(void) {
 }
 
 int DataContainer::refreshImuData(void){   
-    if(imu.readData() == 0){
-        imu_data_ = imu.getdata();  //单次获取并解析采集数据
-        std::lock_guard<std::mutex> lock(imu_mutex_);
-        if (callback_imu) {
+    // if(imu.readData() == 0){
+    //     imu_data_ = imu.getdata();  //单次获取并解析采集数据
+    //     std::lock_guard<std::mutex> lock(imu_mutex_);
+    //     if (callback_imu) {
+    //         callback_imu(imu_data_);
+    //     }
+    //     return 0;
+    // }
+    // return 1;
+
+    imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    if (callback_imu) {
             callback_imu(imu_data_);
-        }
-        return 0;
     }
-    return 1;
+    return 0;
 }
 
 void DataContainer::refreshPcData(void){

@@ -98,7 +98,7 @@ MotorMonitorThread::MotorMonitorThread()
 
         // 4.初始化电机状态
         motor_state_[std::stoi(motor_id, nullptr, 16)].alarm_code = 101;
-         // 获取最大转动角度
+        // 获取最大转动角度
         motor_position_offset_.max_deg = config["ext2deg"]["x_max"].get<float>() - config["ext2deg"]["x_min"].get<float>();
     }
 }
@@ -153,7 +153,8 @@ void MotorMonitorThread::MonitoringLoop()
         std::map<int, MotorData> motors;
 
         // 阻塞等待新数据
-        if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num) {
+        if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num)
+        {
             continue;
         }
 
@@ -164,13 +165,14 @@ void MotorMonitorThread::MonitoringLoop()
             MotorData data = motors[motor_index];
             motor_state_[motor_index].alarm_code = 101;
             // 电机断连检测
-            if (data.disconnect) {
+            if (data.disconnect)
+            {
                 motor_state_[motor_index].alarm_code = 110;
                 continue;
             }
             // === 异常检测处理 ===
             // 温度异常检测
-            if (data.temperature > 85.0)
+            if (data.temperature > 80.0)
             {
                 if (++error_counters[motor_index][102] >= 1)
                 { // 连续5次检测到异常
@@ -194,42 +196,44 @@ void MotorMonitorThread::MonitoringLoop()
                     std::lock_guard<std::mutex> lock(status_mutex_);
                     motor_state_[motor_index].alarm_code = 103;
                 }
-            } else {
+            }
+            else
+            {
                 error_counters[motor_index][103] = 0;
             }
 
             // 电压异常检测
-            // if (data.voltage < 45.0 || data.voltage > 50.0)
-            // {
-            //     if (++error_counters[motor_index][104] >= 3)
-            //     {
-            //         AWARN << "电机" << motor_index << "电压异常: "
-            //               << data.voltage << "V" << std::endl;
-            //         std::lock_guard<std::mutex> lock(status_mutex_);
-            //         motor_state_[motor_index].alarm_code = 104;
-            //     }
-            // }
-            // else
-            // {
-            //     error_counters[motor_index][104] = 0;
-            // }
+            if (data.voltage < 45.0 || data.voltage > 50.0)
+            {
+                if (++error_counters[motor_index][104] >= 3)
+                {
+                    AWARN << "电机" << motor_index << "电压异常: "
+                          << data.voltage << "V" << std::endl;
+                    std::lock_guard<std::mutex> lock(status_mutex_);
+                    motor_state_[motor_index].alarm_code = 104;
+                }
+            }
+            else
+            {
+                error_counters[motor_index][104] = 0;
+            }
 
             // 电流超限检测
-            // if (data.current > 10000.0)
-            // {
-            //     if (++error_counters[motor_index][105] >= 1)
-            //     {
-            //         AWARN << "电机" << motor_index << "电流过大: "
-            //               << data.current << "mA" << std::endl;
-            //         std::lock_guard<std::mutex> lock(status_mutex_);
-            //         motor_state_[motor_index].alarm_code = 105;
-            //     }
-            // }
-            // else
-            // {
-            //     error_counters[motor_index][105] = 0;
-            // }
-            AERROR<<"电机"<<motor_index<<"编码器电池电压"<<data.encoder_battery_voltage;
+            if (data.current > 12500.0)
+            {
+                if (++error_counters[motor_index][105] >= 1)
+                {
+                    AWARN << "电机" << motor_index << "电流过大: "
+                          << data.current << "mA" << std::endl;
+                    std::lock_guard<std::mutex> lock(status_mutex_);
+                    motor_state_[motor_index].alarm_code = 105;
+                }
+            }
+            else
+            {
+                error_counters[motor_index][105] = 0;
+            }
+            AERROR << "电机" << motor_index << "编码器电池电压" << data.encoder_battery_voltage;
             // 电池电压异常检测
             // 获取的电压*0.01为实际电压
             if (data.encoder_battery_voltage >= 290 && data.encoder_battery_voltage <= 320)
@@ -274,9 +278,11 @@ void MotorMonitorThread::MonitoringLoop()
             motor_state_[motor_index].plate = data.position;
 
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::steady_clock::now() - start_time).count();
+                               std::chrono::steady_clock::now() - start_time)
+                               .count();
 
-            if (elapsed < 10) {
+            if (elapsed < 10)
+            {
                 // 开机10s内位置监控
                 AINFO << "time count " << elapsed << " " << error_counters[motor_index][108] << " " << data.position << "count " << error_counters[motor_index][108];
                 if (data.position > 2 && data.position < motor_position_offset_.max_deg + 0.5)
@@ -285,13 +291,14 @@ void MotorMonitorThread::MonitoringLoop()
                     if (++error_counters[motor_index][108] >= 1)
                     {
                         AWARN << "电机" << motor_index << "初始位置未回零: "
-                            << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
+                              << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
                         std::lock_guard<std::mutex> lock(status_mutex_);
                         // 使用118来让controller控制电机回0
                         motor_state_[motor_index].alarm_code = 118;
                         error_elapsed = elapsed;
                     }
-                    if (elapsed > error_elapsed + 3) {
+                    if (elapsed > error_elapsed + 3)
+                    {
                         std::lock_guard<std::mutex> lock(status_mutex_);
                         motor_state_[motor_index].alarm_code = 108;
                     }
@@ -300,18 +307,23 @@ void MotorMonitorThread::MonitoringLoop()
                 {
                     error_counters[motor_index][108] = 0;
                 }
-            } else {
+            }
+            else
+            {
                 // 开机10s后位置监控
-                if (error_counters[motor_index][108] > 0) {
+                if (error_counters[motor_index][108] > 0)
+                {
                     motor_state_[motor_index].alarm_code = 108;
-                } else if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
+                }
+                else if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
                 {
                     if (++error_counters[motor_index][109] >= 1)
                     {
                         AWARN << "电机" << motor_index << "位置超限: "
-                            << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
+                              << data.position << "度" << "偏移位置：" << data.position_offset << std::endl;
                         std::lock_guard<std::mutex> lock(status_mutex_);
-                        if (motor_state_[motor_index].alarm_code != 108) {
+                        if (motor_state_[motor_index].alarm_code != 108)
+                        {
                             motor_state_[motor_index].alarm_code = 109;
                         }
                     }
@@ -388,7 +400,8 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.alarm_code = 201; // 这个代表 惯导正常
 
             // 惯导断连检测
-            if (data.disconnect) {
+            if (data.disconnect)
+            {
                 imu_state_.alarm_code = 209;
                 continue;
             }
@@ -525,69 +538,116 @@ void ImuMonitorThread::MonitoringLoop()
 
             // 断连检测
             AINFO << "imu monitor: " << data.disconnect;
-            if (data.disconnect) {
+            if (data.disconnect)
+            {
                 imu_state_.alarm_code = 209;
                 continue;
             }
             // === 异常检测处理 ===
-            if (data.temperature > 68)
-            {
-                AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 202;
-            }
+            // if (data.temperature > 68)
+            // {
+            //     AWARN << "惯导温度异常: " << data.temperature << "℃" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 202;
+            // }
 
             // 计算绝对速度 (1节 = 0.514444 m/s)
-            float abs_velocity = sqrt(pow(data.north_velocity, 2) +
-                                      pow(data.east_velocity, 2));
+            // float abs_velocity = sqrt(pow(data.north_velocity, 2) +
+            //                           pow(data.east_velocity, 2));
             //=================================================================================
-            
+
             //=================================================================================
-            imu_state_.speed = abs_velocity / 0.514444; 
+            imu_state_.speed = data.speed; // 航速  单位：节
             // AERROR <<"=======惯导监控线程获取航速；"<<imu_state_.speed;
             // 速度超限检测
-            if (data.north_velocity < -40 || data.north_velocity > 40.0 ||
-                    data.east_velocity < -40 || data.east_velocity > 40.0)
+            // if (data.north_velocity < -40 || data.north_velocity > 40.0 ||
+            //         data.east_velocity < -40 || data.east_velocity > 40.0)
+            // {
+            //     AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 203;
+            // }
+            //=================================================================================
+            // 新速度检测
+            if (data.speed < 0 || data.speed > 80.0)
             {
-                AWARN << "航速异常: 北向速度 " << data.north_velocity << " 东向速度： " << data.east_velocity << "m/s" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
-                imu_state_.alarm_code = 203;
-            }
-
-            // 姿态角范围检测
-            if ((data.roll < -40 || data.roll > 40.0) ||
-                (data.pitch < -40 || data.pitch > 40.0))
-            {
-                AWARN << "惯导姿态角异常: 横摇=" << data.roll
-                      << "°, 纵摇=" << data.pitch << "°" << std::endl;
+                AWARN << "航速异常: 航速 " << data.speed << " 节" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
                 imu_state_.alarm_code = 204;
             }
-
+            //=================================================================================
+            //=================================================================================
+            // 姿态角范围检测
+            if (data.pitch < -30 || data.pitch > 30.0)
+            {
+                AWARN << "惯导姿态角异常:纵摇=" << data.pitch << "°" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 202;
+            }
+            if (data.roll < -40 || data.roll > 40.0)
+            {
+                AWARN << "惯导姿态角异常:横摇=" << data.roll << "°" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 203;
+            }
             //--------------------------------------------------------
             // 真实角度
             imu_state_.roll = data.roll;
             imu_state_.pitch = data.pitch;
             //=================================================================================
-
-            // 艏向角范围检测
-            if (data.yaw < 0 || data.yaw > 360.0) {
-                AWARN << "惯导艏向角异常: " << data.yaw << "°" << std::endl;
+            // 舵角范围检测
+            if (data.rudder < -30 || data.rudder > 30.0)
+            {
+                AWARN << "惯导舵角异常:舵角=" << data.rudder << "°" << std::endl;
                 std::lock_guard<std::mutex> lock(status_mutex_);
                 imu_state_.alarm_code = 205;
             }
-
-            // 经纬度范围检测
-            if ((data.longitude < 73.0 || data.longitude > 135.0) ||
-                (data.latitude < 3.0 || data.latitude > 54.0))
+            imu_state_.current_rudder = data.rudder;
+            //================================================================================
+            // 时间戳检测
+            // 时间戳验证（通常不早于2020年，不晚于未来1小时）
+            std::time_t current_time = std::time(nullptr);
+            if (data.timestamp < 1577836800 || data.timestamp > current_time + 3600)
             {
-                AWARN << "惯导经纬度异常: 经度=" << data.longitude
-                      << "°, 纬度=" << data.latitude << "°" << std::endl;
-                std::lock_guard<std::mutex> lock(status_mutex_);
+                AERROR << "时间戳异常，可能无效: " << data.timestamp;
                 imu_state_.alarm_code = 206;
             }
-            imu_state_.latitude = data.latitude;
-            imu_state_.longitude = data.longitude;
+
+            // 转换为可读格式
+            std::time_t time_val = data.timestamp;
+            char time_buf[64];
+            std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&time_val));
+
+            imu_state_.gps_time = std::string(time_buf);
+
+            //================================================================================
+            // 主机转速检测
+            if (data.rpm < 0 || data.rpm > 5000.0)
+            {
+                AWARN << "主机转速异常:主机转速=" << data.main_engine_rpm << "rpm" << std::endl;
+                std::lock_guard<std::mutex> lock(status_mutex_);
+                imu_state_.alarm_code = 207;
+            }
+            imu_state_.rpm = data.rpm;
+            //================================================================================
+            // 艏向角范围检测
+            // if (data.yaw < 0 || data.yaw > 360.0) {
+            //     AWARN << "惯导艏向角异常: " << data.yaw << "°" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 205;
+            // }
+
+            // // 经纬度范围检测
+            // if ((data.longitude < 73.0 || data.longitude > 135.0) ||
+            //     (data.latitude < 3.0 || data.latitude > 54.0))
+            // {
+            //     AWARN << "惯导经纬度异常: 经度=" << data.longitude
+            //           << "°, 纬度=" << data.latitude << "°" << std::endl;
+            //     std::lock_guard<std::mutex> lock(status_mutex_);
+            //     imu_state_.alarm_code = 206;
+            // }
+            // imu_state_.latitude = data.latitude;
+            // imu_state_.longitude = data.longitude;
 
             // 定位状态检测
             // AINFO << "data.GNSS_staus " << data.GNSS_staus;
@@ -613,25 +673,25 @@ void ImuMonitorThread::MonitoringLoop()
             //     error_counters[208] = 0;
             // }
 
-            int gps_week = data.gps_week;
+            // int gps_week = data.gps_week;
             // AERROR<<"==========data.gps_week:"<<data.gps_week;
             // AERROR<<"==========gps_week:"<<gps_week;
-            double gps_tow = data.gps_millisecond * 0.001;
+            // double gps_tow = data.gps_millisecond * 0.001;
 
             // 转换为UTC时间戳
-            time_t utcTimestamp = gpsToUtc(gps_week, gps_tow);
+            // time_t utcTimestamp = gpsToUtc(gps_week, gps_tow);
 
             // 转换为北京时间（UTC+8）
-            time_t beijingTimestamp = utcTimestamp + 8 * 3600;
-            struct tm *beijingTime = gmtime(&beijingTimestamp);
+            // time_t beijingTimestamp = utcTimestamp + 8 * 3600;
+            // struct tm *beijingTime = gmtime(&beijingTimestamp);
 
             // 格式化和输出北京时间（仅到秒）
-            std::stringstream bjSS;
-            bjSS << std::put_time(beijingTime, "%Y-%m-%d %H:%M:%S");
+            // std::stringstream bjSS;
+            // bjSS << std::put_time(beijingTime, "%Y-%m-%d %H:%M:%S");
             // AERROR<<"===========time" << bjSS.str();
-            imu_state_.gps_time = bjSS.str();
+            // imu_state_.gps_time = bjSS.str();
 
-            imu_state_.yaw = data.yaw;
+            // imu_state_.yaw = data.yaw;
         }
     }
     //=================================================================================
@@ -706,14 +766,14 @@ void LinuxPcMonitorThread::MonitoringLoop()
 
         // === 主监控项（每100秒更新）===
         // 温度异常检测
-        if (data.temperature > 85.0)
+        if (data.temperature > 100)
         {
             AWARN << "PC温度异常: " << data.temperature << "℃" << std::endl;
             pc_state_.alarm_code = 302;
         }
 
         // === CPU监控（每10秒更新）===
-        if (data.cpu_usage > 100.0)
+        if (data.cpu_usage > 70)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
             pc_state_.alarm_code = 303;
@@ -729,7 +789,7 @@ void LinuxPcMonitorThread::MonitoringLoop()
         if (data.storage_usage > 70.0)
         {
             AWARN << "存储空间不足: " << data.storage_usage << "%" << std::endl;
-            pc_state_.alarm_code = 305;
+            pc_state_.alarm_code = 304;
         }
     }
 }
