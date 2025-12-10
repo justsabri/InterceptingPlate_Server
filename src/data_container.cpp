@@ -87,6 +87,7 @@ int DataContainer::refreshImuData(void){
     // return 1;
 
     imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
+    AINFO <<"刷新惯导数据："<<imu_data_.timestamp;
     std::lock_guard<std::mutex> lock(imu_mutex_);
     if (callback_imu) {
             callback_imu(imu_data_);

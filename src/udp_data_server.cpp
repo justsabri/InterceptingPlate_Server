@@ -127,6 +127,8 @@ void UdpDataServer::receiverLoop() {
             continue;
         }
         
+
+
         // 检查数据长度（根据图片应为24字节）
         if (bytes_received != sizeof(ImuData)) {
             AERROR << "数据长度不匹配！期望: " << sizeof(ImuData) 
@@ -148,7 +150,10 @@ void UdpDataServer::receiverLoop() {
             std::lock_guard<std::mutex> lock(data_mutex);
             current_data = new_data;
         }
-        
+
+        AINFO << "接收到数据"<< " - 横倾角:" << new_data.roll << "° 纵倾角:" << new_data.pitch << "°"
+          << " 航速:" << new_data.speed << "kn 转速:" << new_data.rpm << "rpm 时间戳"<< new_data.timestamp;
+
         // 获取客户端信息
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);

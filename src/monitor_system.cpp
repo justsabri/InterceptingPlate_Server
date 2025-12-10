@@ -43,7 +43,7 @@ bool ThreadSafeQueue<T>::Pop(T &value, bool block)
     }
     if (queue_.empty() || !running_)
         return false;
-
+    
     value = std::move(queue_.front());
     queue_.pop();
     return true;
@@ -345,6 +345,7 @@ ImuMonitorThread::ImuMonitorThread()
         Topic::ImuStatus,
         [this](ImuData raw_data)
         {
+             AINFO << "订阅到的惯导数据时间戳: " << raw_data.timestamp;
             imu_data_queue.Push(raw_data);
         },
         this);
@@ -523,17 +524,19 @@ void ImuMonitorThread::MonitoringLoop()
     }
     //=================================================================================
     else
-    {
+    {   
+        AINFO << "进入惯导监控线程正常模式";
         // 为惯导每个状态添加计数器
         std::map<int, int> error_counters; // <错误类型, 计数>
         // 正常 运行
         while (running_)
         {
             ImuData data;
-
+            AINFO << "准备从队列Pop数据...";
             // 阻塞等待新数据
             if (!imu_data_queue.Pop(data))
                 break;
+            AINFO << "从队列Pop出的数据 - 时间戳: " << data.timestamp << ", 航速: " << data.speed;
             imu_state_.alarm_code = 201;
 
             // 断连检测
@@ -614,12 +617,13 @@ void ImuMonitorThread::MonitoringLoop()
             }
 
             // 转换为可读格式
+            AINFO << "监控系统数据: " << data.timestamp<<"";
             std::time_t time_val = data.timestamp;
             char time_buf[64];
             std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&time_val));
 
             imu_state_.gps_time = std::string(time_buf);
-
+            AINFO << "惯导时间: " << imu_state_.gps_time;
             //================================================================================
             // 主机转速检测
             if (data.rpm < 0 || data.rpm > 5000.0)
