@@ -47,6 +47,7 @@ set(WEBSOCKET_SOURCE_FILES
     src/motor_controller.cpp
     src/motor.cpp
     src/pc.cpp
+    src/udp_data_server.cpp
 )
 
 # websocket_server可执行文件目标
@@ -88,6 +89,7 @@ set(MODBUSTCP_SOURCE_FILES
     src/motor_controller.cpp
     src/motor.cpp
     src/pc.cpp
+    src/udp_data_server.cpp
 )
 
 # websocket_server可执行文件目标
