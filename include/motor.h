@@ -22,7 +22,7 @@
 #include "HeartBeat.h"
 #include <queue>              // 添加queue头文件
 #include <condition_variable> // 添加条件变量头文件
-
+//测试提交功能
 // 指令优先级枚举
 enum CommandPriority {
     PRIORITY_HIGH,    // 高优先级（控制指令）
