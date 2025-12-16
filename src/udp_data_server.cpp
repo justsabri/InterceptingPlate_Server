@@ -58,7 +58,7 @@ bool UdpDataServer::start() {
     
     // 4. 配置服务器地址
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;  // 监听所有网络接口
+    server_addr.sin_addr.s_addr = inet_addr("192.168.1.201");  // 监听所有网络接口
     server_addr.sin_port = htons(port);
     
     // 5. 绑定端口
@@ -115,9 +115,11 @@ void UdpDataServer::receiverLoop() {
         ssize_t bytes_received = recvfrom(server_fd, buffer, sizeof(buffer), 0,
                                         (struct sockaddr*)&client_addr, &client_addr_len);
         
+        AINFO << "接收数据..." << bytes_received << " 字节";
         if (bytes_received < 0) {
             // 检查是否超时（这是正常的，用于检查is_running状态）
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    
                 continue;
             }
             // 其他错误且服务器仍在运行，则报告错误
@@ -127,6 +129,21 @@ void UdpDataServer::receiverLoop() {
             continue;
         }
         
+        // 获取客户端信息
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+        uint16_t client_port = ntohs(client_addr.sin_port);
+        
+        // 打印客户端连接信息和原始报文
+        std::stringstream hex_stream;
+        hex_stream << std::hex << std::uppercase << std::setfill('0');
+        for (int i = 0; i < bytes_received; ++i) {
+            hex_stream << std::setw(2) << static_cast<int>(buffer[i]) << " ";
+        }
+        
+        AINFO << "接收到来自客户端 " << client_ip << ":" << client_port 
+              << " 的数据，长度: " << bytes_received << " 字节";
+        AINFO << "原始报文(十六进制): " << hex_stream.str();
 
 
         // 检查数据长度（根据图片应为24字节）
@@ -140,10 +157,10 @@ void UdpDataServer::receiverLoop() {
         ImuData new_data = parseData(buffer, bytes_received);
         
         // 验证数据范围（根据图片中的取值范围）
-        if (!validateData(new_data)) {
-            AERROR << "数据验证失败，数据可能无效" ;
-            continue;
-        }
+        // if (!validateData(new_data)) {
+        //     AERROR << "数据验证失败，数据可能无效" ;
+        //     continue;
+        // }
         
         // 线程安全地更新当前数据
         {
@@ -154,10 +171,6 @@ void UdpDataServer::receiverLoop() {
         AINFO << "接收到数据"<< " - 横倾角:" << new_data.roll << "° 纵倾角:" << new_data.pitch << "°"
           << " 航速:" << new_data.speed << "kn 转速:" << new_data.rpm << "rpm 时间戳"<< new_data.timestamp;
 
-        // 获取客户端信息
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
-        
         // 打印接收信息（可选，调试用）
         static int receive_count = 0;
         if (++receive_count % 50 == 0) {
