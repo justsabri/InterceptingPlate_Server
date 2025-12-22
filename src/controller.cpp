@@ -217,8 +217,12 @@ void Controller::handle_message(const json& j) {
                     DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
                     DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
                 }
-   
-            } else {
+            
+            }
+            else if(controlMode == "PoweOff"){
+                system("sudo shut down -h now");
+            }
+            else {
                 // 记录无效的控制模式
                 AWARN << "Invalid control mode " << controlMode;
                 throw std::runtime_error("Invalid control mode: " + controlMode);
