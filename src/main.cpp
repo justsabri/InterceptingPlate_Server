@@ -97,7 +97,7 @@ int main() {
         controller.start();
         AERROR << "====================3";
         // 启动 modbus 服务
-        tcp_server.start(8080);
+        tcp_server.start(21000);
         AERROR << "====================4";
     } catch (const std::exception & e) {
         // 捕获并记录未被处理的异常

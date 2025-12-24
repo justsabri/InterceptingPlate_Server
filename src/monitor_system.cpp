@@ -779,7 +779,7 @@ void LinuxPcMonitorThread::MonitoringLoop()
         }
 
         // === CPU监控（每10秒更新）===
-        if (data.cpu_usage > 70)
+        if (data.cpu_usage > 400)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
             pc_state_.alarm_code = 303;

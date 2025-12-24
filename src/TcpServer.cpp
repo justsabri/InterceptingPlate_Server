@@ -53,7 +53,7 @@ TcpServer::~TcpServer() {
 
 bool TcpServer::start(int port) {
     // 1. 创建 socket
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         AERROR << "create socket failed";
         return false;
