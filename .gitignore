@@ -1,0 +1,70 @@
+# ======================
+# Build / CMake
+# ======================
+build/
+build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ======================
+# Binary / Object
+# ======================
+*.o
+*.a
+*.so
+*.so.*
+*.out
+*.exe
+*.elf
+
+# ======================
+# Logs / Runtime
+# ======================
+*.log
+logs/
+log/
+*.diff
+*.csv
+# ======================
+# Editor / IDE
+# ======================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ======================
+# OS / System
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# Debug / Core
+# ======================
+core
+core.*
+vgcore.*
+
+# ======================
+# SSH / Keys (防误提交)
+# ======================
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# ======================
+# Package / Temp
+# ======================
+*.tar
+*.tar.gz
+*.zip
+*.tmp
+
