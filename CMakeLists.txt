@@ -54,12 +54,54 @@ set(WEBSOCKET_SOURCE_FILES
 add_executable(websocket_server ${WEBSOCKET_SOURCE_FILES})
 
 # 现代包含目录声明（PRIVATE作用域）
-target_include_directories(websocket_server PRIVATE 
+target_include_directories(websocket_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # 修正库链接
 target_link_libraries(websocket_server PRIVATE
+    # Boost组件（需要指定具体库）
+    Boost::system
+    # 线程库
+    Threads::Threads
+    # JSON库
+    nlohmann_json::nlohmann_json
+    # 4. 添加Boost头文件库（可选但推荐）
+    Boost::headers
+
+    glog::glog
+)
+
+# 增加宏定义
+target_compile_definitions(websocket_server PUBLIC WEBSOCKET_COMMUNICATION)
+
+# 设置tcp server源文件
+set(TCP_SOURCE_FILES
+    src/main.cpp
+    src/TcpServer.cpp
+    src/controller.cpp
+    src/alg_processor.cpp
+    src/pid_control.cpp
+    src/data_container.cpp
+    src/data_center.cpp
+    src/imu_rs232.cpp
+    src/monitor_system.cpp
+    src/motor_controller.cpp
+    src/motor.cpp
+    src/pc.cpp
+    src/udp_data_server.cpp
+)
+
+# websocket_server可执行文件目标
+add_executable(tcp_server ${TCP_SOURCE_FILES})
+
+# 现代包含目录声明（PRIVATE作用域）
+target_include_directories(tcp_server PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# 修正库链接
+target_link_libraries(tcp_server PRIVATE
     # Boost组件（需要指定具体库）
     Boost::system  
     # 线程库
@@ -73,9 +115,9 @@ target_link_libraries(websocket_server PRIVATE
 )
 
 # 增加宏定义
-target_compile_definitions(websocket_server PUBLIC WEBSOCKET_COMMUNICATION)
+target_compile_definitions(tcp_server PUBLIC TCP_COMMUNICATION)
 
-# 设置websocket server源文件
+# 设置modbus server源文件
 set(MODBUSTCP_SOURCE_FILES
     src/main.cpp
     src/ModbusTcpServer.cpp
@@ -92,11 +134,11 @@ set(MODBUSTCP_SOURCE_FILES
     src/udp_data_server.cpp
 )
 
-# websocket_server可执行文件目标
+# modbus server可执行文件目标
 add_executable(modbustcp_server ${MODBUSTCP_SOURCE_FILES})
 
 # 现代包含目录声明（PRIVATE作用域）
-target_include_directories(modbustcp_server PRIVATE 
+target_include_directories(modbustcp_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -110,7 +152,7 @@ target_link_libraries(modbustcp_server PRIVATE
     modbus
     # 4. 添加Boost头文件库（可选但推荐）
     Boost::headers
-    
+
     glog::glog
 )
 

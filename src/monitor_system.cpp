@@ -593,10 +593,12 @@ void ImuMonitorThread::MonitoringLoop()
                 std::lock_guard<std::mutex> lock(status_mutex_);
                 imu_state_.alarm_code = 203;
             }
+
             //--------------------------------------------------------
             // 真实角度
             imu_state_.roll = data.roll;
             imu_state_.pitch = data.pitch;
+            imu_state_.yaw = data.yaw;
             //=================================================================================
             // 舵角范围检测
             if (data.rudder < -30 || data.rudder > 30.0)
