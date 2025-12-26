@@ -1,6 +1,6 @@
 // =====================================================================
 // Author: Tian Hongyu
-// Data:2025-12-26
+// Data:2025-12-29
 // =====================================================================
 
 #include <glog/logging.h>
@@ -638,11 +638,11 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
         {
             // 舵角大于5°：进行转向控制
             AINFO << "舵角(" << current_rudder << "°) > 5°，进入转向控制";
-            result = PID_turn_large_control_by_roll(current_roll_angle,
-                                                    input.left_current,
-                                                    input.right_current,
-                                                    input.max_extension,
-                                                    pid_big_turn);
+            result = PID_turn_large_control(current_rudder,
+                                            input.left_current,
+                                            input.right_current,
+                                            input.max_extension,
+                                            pid_big_turn);
         }
 
         new_left = result.first;
