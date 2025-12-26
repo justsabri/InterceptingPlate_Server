@@ -4,7 +4,11 @@
 
 // 输入参数结构体
 struct PID_Input {
-  int mode;  // 控制模式（1=舒适，2=节能，31=航速优先，32=辅助急停，33=协调转弯，34=纵倾最优，35=横倾最优）
+  
+  // 控制模式
+  //1=自动模式，2=暂时空置（原暂定节能）
+  //31=航速优先（同步实现纵倾最优），32=辅助急停，33=协调转弯，34=暂时空置（原为纵倾最优），35=横倾/摇最优）
+  int mode;  
   std::optional<float> current_speed;    // 当前船舶航速（单位：节）
   std::optional<float> pitch_current;    // 当前纵倾角度
   std::optional<float> pitch_target;     // 目标纵倾角度
@@ -17,10 +21,10 @@ struct PID_Input {
   std::optional<float> current_rudder;   // 船舶当前舵角
 };
 
-// 输出参数结构体（对应Python返回的元组）
+// 输出参数结构体
 struct PID_Output {
 
-  int mode;   // 控制模式（1=舒适，2=节能，31=航速优先，32=辅助急停，33=协调转弯，34=纵倾最优，35=横倾最优）
+  int mode;   // 控制模式
   float new_left;   // 更新后的左侧伸缩量
   float new_right;  // 更新后的右侧伸缩量
 
