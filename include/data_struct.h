@@ -54,16 +54,19 @@
 // };
 
 // 根据表格定义的外部信息系统数据结构
-#pragma pack(push, 1)  // 确保1字节对齐，防止编译器填充
 struct ImuData {
     float roll;          // 横倾角 (-40°~40°)
     float pitch;         // 纵倾角 (-30°~30°)
+    float yaw;
     float rudder;        // 舵角 (-30°~30°)
     float speed;         // 航速 (0~80kn)
     float rpm;           // 主机转速 (0~5000rpm)
     uint32_t timestamp;  // UNIX时间戳
+    std::string gps_time;
+    float heading;
+    float latitude;
+    float longitude;
 };
-#pragma pack(pop)
 
 // 电机错误状态结构体
 struct MotorErrorStatus {
@@ -125,6 +128,7 @@ struct MotorStateData {
 struct ImuStateData
 {
   uint16_t alarm_code;       // 惯导状态码
+  float yaw;
   float pitch;          // 纵倾角
   float roll;           // 横倾角
   float speed;          // 航速
@@ -174,3 +178,33 @@ typedef struct {
     uint16_t modbus_addr;
     void (*handler_ptr)(void* ptr);
 } ModbusParamItem;
+
+struct TcpDataEvent {
+    int recv_len;
+    int send_len;
+    uint8_t* recv_buffer;
+    uint8_t* send_buffer;
+};
+
+struct Server_Info {
+    float speed;
+    float ext_left_limit;
+    float ext_right_limit;
+    float ext_left;
+    float ext_right;
+    uint16_t motor_num;
+    std::vector<uint16_t> motor_state;
+    uint16_t pc_state;
+    float heading;
+    float pitch;
+    float roll;
+    uint64_t timestamp;
+};
+
+struct Server_Ctrl {
+    uint16_t ctrl_mode;
+    float ext_left;
+    float ext_right;
+    uint16_t shutdown;
+    uint64_t timestamp;
+};

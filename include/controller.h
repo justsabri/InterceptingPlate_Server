@@ -26,11 +26,13 @@ public:
     void start();
     void sendDataToClient(Data_Type type, void *data);
     void handle_message(const json &j);
+    void handle_message(const Server_Ctrl& ctl);
     void handle_message(const ModbusDataEvent &event);
     double thetaToY(double theta_deg);
     double yToTheta(double y);
     void ctrl_motor(std::optional<float> left, std::optional<float> right);
 
+    // for modbus tcp
     typedef struct {
         uint16_t mode;
         uint16_t auto_mode;
@@ -78,6 +80,7 @@ private:
     };
 
     void convertStructToJson(Data_Type type, void *data, json &j);
+    void convertStructToTcp(void* data, Server_Info &info);
     void tryProcess();
     void excuteAlgCmd(const AlgResult &res);
     void tryHandleError();

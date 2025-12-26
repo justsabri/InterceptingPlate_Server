@@ -16,6 +16,10 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
     event_bus_.subscribe<ModbusDataEvent>("from_modbus", [this](const ModbusDataEvent event) {
         handle_message(event);
     });
+#elif TCP_COMMUNICATION
+    event_bus_.subscribe<Server_Ctrl>("from_tcp", [this](const Server_Ctrl ctl) {
+        handle_message(ctl);
+    });
 #endif
     alg_processor_ = std::make_unique<AlgProcessor>();
     motor_ctrl_ = std::make_unique<MotorController>();
@@ -140,6 +144,14 @@ void Controller::sendDataToClient(Data_Type type, void* data) {
     }, type, data);
 #elif MODBUSTCP_COMMUNICATION
     // 不需要主动发送
+#elif TCP_COMMUNICATION
+    thread_pool_.enqueue([this](void* data){
+        Server_Info info;
+        convertStructToTcp(data, info);
+        AINFO << "send data to tcp client";
+        event_bus_.publish("to_tcp", info);  // 发布事件，tcp 服务端会收到并主动发送到客户端
+        AERROR << "END";
+    }, data);
 #endif
 }
 
@@ -168,11 +180,11 @@ void Controller::handle_message(const json& j) {
                 const json& manual_params = command["manual_params"];
                 // 获取截流板伸长度参数
                 const json& extension = manual_params["extension"];
-                
+
                 // 解析两个截流板的设定值
                 float plate_1 = extension["plate_1"].get<float>();
                 float plate_2 = extension["plate_2"].get<float>();
-               
+
                 // 在日志中记录手动控制请求
  
                 AWARN << "==========MANUAL mode " << ": plate_1=" << plate_1 << ", plate_2=" << plate_2;
@@ -217,8 +229,12 @@ void Controller::handle_message(const json& j) {
                     DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
                     DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
                 }
-   
-            } else {
+            
+            }
+            else if(controlMode == "PoweOff"){
+                system("sudo shut down -h now");
+            }
+            else {
                 // 记录无效的控制模式
                 AWARN << "Invalid control mode " << controlMode;
                 throw std::runtime_error("Invalid control mode: " + controlMode);
@@ -230,6 +246,41 @@ void Controller::handle_message(const json& j) {
     };
 
     thread_pool_.enqueue(func, j);
+}
+
+void Controller::handle_message(const Server_Ctrl& ctl) {
+    if (ctl.shutdown) {
+        system("sudo shut down -h now");
+    }
+
+    // 手动模式
+    if (ctl.ctrl_mode == 2) {
+        // 清除自动模式的资源
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+        alg_processor_->clear();
+        auto_mode_ = 0;
+
+        AINFO << "==========MANUAL mode " << ": plate_1=" << ctl.ext_left << ", plate_2=" << ctl.ext_right;
+        double theta_1 = yToTheta(ctl.ext_left*config_info_.max_ext);
+        double theta_2 = yToTheta(ctl.ext_right*config_info_.max_ext);
+        AINFO <<"=========角度："<<theta_1<<"========"<<theta_2;
+        // 控制 moter_ctrl执行对应命令
+        ctrl_motor(theta_1, theta_2);
+    } else if (ctl.ctrl_mode == 1) {
+        AINFO << "进入自动模式=================================";
+        auto_mode_ = 1;
+        // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
+        DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
+        DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
+        AINFO << "注册回调成功=================================";
+    } else if (ctl.ctrl_mode == 0) {
+        AINFO << "进入待机模式=================================";
+        // 清除自动模式的资源
+        auto_mode_ = 0;
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+    }
 }
 
 static void auto_ctrl(void* ptr) {
@@ -385,12 +436,12 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
     switch(type) {
         case STATE_DATA:
             {
-     
                 AINFO << "MOTOR ";
                 DataPack pack = *(DataPack*)(data);
                 AINFO << "MOTOR " << config_info_.motor_num << " " << pack.motor_state.size();
                 j["data"]["navigation"] = {
                     {"enable", true},
+                    {"yaw",pack.imu_state.yaw},
                     {"speed", pack.imu_state.speed}
                 };
                 alg_package_.in.max_extension = safe_ext_.getMaxExtensionRatio(pack.imu_state.speed) * config_info_.max_ext;
@@ -433,8 +484,8 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
                     {"extension", {
                         // {"plate_1", 0.0},
                         // {"plate_2", 0.0}
-                        {"plate_1", test_plate_extension},
-                        {"plate_2", test_plate_extension}
+                        {"plate_1", safe_ext_.getMaxExtensionRatio(pack.imu_state.speed)},
+                        {"plate_2", safe_ext_.getMaxExtensionRatio(pack.imu_state.speed)}
                     }},
                     {"current_ratio", {
                         {"plate_1", thetaToY(pack.motor_state[config_info_.left_motor[0]].plate) / config_info_.max_ext},
@@ -474,6 +525,51 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
     }
 }
 
+uint64_t parse_to_timestamp(const std::string& time_str) {
+    // 解析字符串中的各个字段
+    int year, month, day, hour, minute, second;
+    int milliseconds;
+    std::sscanf(time_str.c_str(), "%4d%2d%2d%2d%2d%2d.%3d", &year, &month, &day, &hour, &minute, &second, &milliseconds);
+
+    // 创建 std::tm 结构体并填充解析的时间字段
+    std::tm tm_time = {};
+    tm_time.tm_year = year - 1900;  // std::tm 年份从 1900 开始
+    tm_time.tm_mon = month - 1;     // std::tm 月份从 0 开始
+    tm_time.tm_mday = day;
+    tm_time.tm_hour = hour;
+    tm_time.tm_min = minute;
+    tm_time.tm_sec = second;
+
+    // 使用 mktime 将 std::tm 转换为 Unix 时间戳（秒）
+    std::time_t time_in_seconds = std::mktime(&tm_time);
+
+    if (time_in_seconds == -1) {
+        std::cerr << "Error: Invalid time" << std::endl;
+        return 0;
+    }
+
+    // 将秒级时间戳转换为毫秒级
+    uint64_t timestamp_ms = static_cast<uint64_t>(time_in_seconds) * 1000 + milliseconds;
+    return timestamp_ms;
+}
+
+void Controller::convertStructToTcp(void* data, Server_Info &info) {
+    DataPack pack = *(DataPack*)(data);
+    info.speed = pack.imu_state.speed;
+    info.ext_left_limit = safe_ext_.getMaxExtensionRatio(pack.imu_state.speed);
+    info.ext_right_limit = safe_ext_.getMaxExtensionRatio(pack.imu_state.speed);
+    info.ext_left = thetaToY(pack.motor_state[config_info_.left_motor[0]].plate) / config_info_.max_ext;
+    info.ext_right = thetaToY(pack.motor_state[config_info_.right_motor[0]].plate) / config_info_.max_ext;
+    info.motor_num = config_info_.motor_num;
+    for (int i = 0; i < info.motor_num; i++) {
+        info.motor_state.push_back(pack.motor_state[config_info_.motor_id[i]].alarm_code);
+    }
+    info.pc_state = pack.pc_state.alarm_code;
+    info.heading = pack.imu_state.yaw;
+    info.pitch = pack.imu_state.pitch;
+    info.roll = pack.imu_state.roll;
+    info.timestamp = parse_to_timestamp(pack.imu_state.gps_time);
+}
 //-------------------------------------------------------------------------------
 // 纵倾/摇最优  模拟角度  根据伸出量  来变化 20250822
 
