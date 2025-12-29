@@ -17,7 +17,7 @@ struct PID_Input {
   float left_current;                    // 左侧截流板当前伸缩量（单位：毫米）
   float right_current;                   // 右侧截流板当前伸缩量（单位：毫米）
   float max_extension;                   // 截流板最大允许伸缩量（单位：毫米）
-  std::optional<float> current_heading;  // 船舶当前艏向
+  std::optional<float> current_RPM;      // 当前主机转速
   std::optional<float> current_rudder;   // 船舶当前舵角
 };
 

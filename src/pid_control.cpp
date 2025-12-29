@@ -276,65 +276,6 @@ private:
     }
 };
 
-// 协调转弯控制函数 - 基于横倾角的大角度转向
-std::pair<float, float> PID_turn_large_control_by_roll(float current_roll_angle,
-                                                       float left_current,
-                                                       float right_current,
-                                                       float max_extension,
-                                                       PIDController &pid)
-{
-
-    AINFO << "=============================已进入横倾角大角度转向控制程序=====================";
-    AINFO << "当前横倾角: " << current_roll_angle << "°";
-
-    // 确定横倾方向（假设右倾为正，左倾为负）
-    bool is_right_roll = current_roll_angle > 0;
-    AINFO << "横倾方向: " << (is_right_roll ? "右倾" : "左倾");
-
-    // 大角度转向：使用最大伸缩量作为目标
-    float target_extension = max_extension;
-    AINFO << "大角度横倾，目标伸缩量: " << target_extension << "mm";
-
-    // 根据横倾方向设置控制策略
-    float left_target = 0.0f;
-    float right_target = 0.0f;
-
-    if (is_right_roll)
-    {
-        // 右倾：右侧截流板下放，左侧收回为0
-        float error = target_extension - right_current;
-        float pid_output = pid.compute(error, dt);
-
-        right_target = right_current + error;
-        left_target = 0.0f; // 确保左侧收回为0
-
-        AINFO << "右侧PID计算量: " << pid_output;
-        AINFO << "右侧目标伸缩量: " << right_target << "mm";
-        AINFO << "左侧强制收回为0";
-    }
-    else
-    {
-        // 左倾：左侧截流板下放，右侧收回为0
-        float error = target_extension - left_current;
-        float pid_output = pid.compute(error, dt);
-
-        left_target = left_current + error;
-        right_target = 0.0f; // 确保右侧收回为0
-
-        AINFO << "左侧PID计算量: " << pid_output;
-        AINFO << "左侧目标伸缩量: " << left_target << "mm";
-        AINFO << "右侧强制收回为0";
-    }
-
-    // 应用物理限制
-    float new_left = std::max(0.0f, std::min(left_target, max_extension));
-    float new_right = std::max(0.0f, std::min(right_target, max_extension));
-
-    AINFO << "横倾角大角度转向控制 - 左侧截流板伸缩量: " << new_left << "mm, 右侧截流板伸缩量: " << new_right << "mm";
-
-    return {new_left, new_right};
-}
-
 // 协调转弯控制函数 - 基于舵角的大角度转向
 std::pair<float, float> PID_turn_large_control(float current_rudder,
                                                float left_current,
@@ -392,7 +333,92 @@ std::pair<float, float> PID_turn_large_control(float current_rudder,
     float new_left = std::max(0.0f, std::min(left_target, max_extension));
     float new_right = std::max(0.0f, std::min(right_target, max_extension));
 
+    // 防抖动处理：若变化量小于1mm，则保持当前值
+    if (std::abs(new_left - left_current) < 1.0f)
+    {
+        AINFO << "左侧伸缩量变化小于1mm，保持当前值: " << left_current << "mm";
+        new_left = left_current;
+    }
+
+    if (std::abs(new_right - right_current) < 1.0f)
+    {
+        AINFO << "右侧伸缩量变化小于1mm，保持当前值: " << right_current << "mm";
+        new_right = right_current;
+    }
+
     AINFO << "大角度转向控制 - 左侧截流板伸缩量: " << new_left << "mm, 右侧截流板伸缩量: " << new_right << "mm";
+
+    return {new_left, new_right};
+}
+
+// 协调转弯控制函数 - 基于横倾角的大角度转向
+std::pair<float, float> PID_turn_large_control_by_roll(float current_roll_angle,
+                                                       float left_current,
+                                                       float right_current,
+                                                       float max_extension,
+                                                       PIDController &pid)
+{
+
+    AINFO << "=============================已进入横倾角大角度转向控制程序=====================";
+    AINFO << "当前横倾角: " << current_roll_angle << "°";
+
+    // 确定横倾方向（假设右倾为正，左倾为负）
+    bool is_right_roll = current_roll_angle > 0;
+    AINFO << "横倾方向: " << (is_right_roll ? "右倾" : "左倾");
+
+    // 大角度转向：使用最大伸缩量作为目标
+    float target_extension = max_extension;
+    AINFO << "大角度横倾，目标伸缩量: " << target_extension << "mm";
+
+    // 根据横倾方向设置控制策略
+    float left_target = 0.0f;
+    float right_target = 0.0f;
+
+    if (is_right_roll)
+    {
+        // 右倾：右侧截流板下放，左侧收回为0
+        float error = target_extension - right_current;
+        float pid_output = pid.compute(error, dt);
+
+        right_target = right_current + error;
+        left_target = 0.0f; // 确保左侧收回为0
+
+        AINFO << "右侧PID计算量: " << pid_output;
+        AINFO << "右侧目标伸缩量: " << right_target << "mm";
+        AINFO << "左侧强制收回为0";
+    }
+    else
+    {
+        // 左倾：左侧截流板下放，右侧收回为0
+        float error = target_extension - left_current;
+        float pid_output = pid.compute(error, dt);
+
+        left_target = left_current + error;
+        right_target = 0.0f; // 确保右侧收回为0
+
+        AINFO << "左侧PID计算量: " << pid_output;
+        AINFO << "左侧目标伸缩量: " << left_target << "mm";
+        AINFO << "右侧强制收回为0";
+    }
+
+    // 应用物理限制
+    float new_left = std::max(0.0f, std::min(left_target, max_extension));
+    float new_right = std::max(0.0f, std::min(right_target, max_extension));
+
+    // 防抖动处理：若变化量小于1mm，则保持当前值
+    if (std::abs(new_left - left_current) < 1.0f)
+    {
+        AINFO << "左侧伸缩量变化小于1mm，保持当前值: " << left_current << "mm";
+        new_left = left_current;
+    }
+
+    if (std::abs(new_right - right_current) < 1.0f)
+    {
+        AINFO << "右侧伸缩量变化小于1mm，保持当前值: " << right_current << "mm";
+        new_right = right_current;
+    }
+
+    AINFO << "横倾角大角度转向控制 - 左侧截流板伸缩量: " << new_left << "mm, 右侧截流板伸缩量: " << new_right << "mm";
 
     return {new_left, new_right};
 }
@@ -478,7 +504,7 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
     }
 
     // 伸缩量校验
-    if (input.left_current < -1 || input.right_current < -1)
+    if (input.left_current < -2 || input.right_current < -2)
     {
         error_msg = "当前伸缩量不能为较大负数";
         AERROR << error_msg;
@@ -517,9 +543,20 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
         // AERROR << "错误";
         // AFATAL << "致命错误";
 
+    // 自动模式
     case 1:
-    {                                                     // 自动模式
-        AINFO << "[自动模式] 保持当前状态，尚未完成开发"; // 使用AINFO宏
+    {
+        AINFO << "=============================切换为自动模式========================";
+
+        // 现在需要开发自动模式，其他模式的功能整合在自动模式中
+        // 自动模式下，优先判断舵角，若舵角绝对值≥10，切换协调转弯；舵角在(5,10)之间，保持当前状态；舵角≤5，切换到下一步；
+        // 其次判断横摇，若横摇绝对值≥5，切换横倾最优；横摇在(2,5)之间，保持当前状态；横摇≤2，切换下一步；
+        // 实时记录五秒以上的注意转速，若主机转速，在5s内转速下降至800rpm以下，且平均每秒下降300rpm以上，则切换辅助急停模式（具体数据和老轨确认）；
+        // 其他情况下，切换为航速最优模式。
+        // 考虑到自动模式下会对后面各个模式的代码进行一定程度的复用，这里是否可以直接调用各个模块？
+        // 航速最优和辅助急停模式可以直接case 31的内容，但是两种模式的协调转弯手动切换比较复杂
+
+
         break;
     }
 
@@ -580,157 +617,133 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
         break;
     }
 
-    // 协调转弯控制模式（第一种判断模式：舵角判断）
+    // 协调转弯控制模式（通过 coord_turn_select 选择判断方式：1=舵角判断, 2=横摇/横倾角判断）
     case 33:
     {
-        AINFO << "=============================切换为协调转弯模式（基于舵角判断）========================";
+        // 修改此变量的值以切换判断模式：1 使用舵角判断，2 使用横摇角判断
+        int coord_turn_select = 1; // <-- 修改为 1 或 2 即可切换（仅修改此行，无需改动头文件）
 
-        float current_speed = input.current_speed.value();
-        AINFO << "当前接收到的速度" << current_speed
-              << "截流板当前阈值" << input.max_extension;
-
-        // 检查舵角数据是否存在
-        if (!input.current_rudder.has_value())
+        if (coord_turn_select == 1)
         {
-            error_code = 330;
-            error_msg = "协调转弯模式（舵角判断）需要提供当前舵角";
-            AERROR << error_msg;
-            break;
+            AINFO << "=============================切换为协调转弯模式（基于舵角判断）========================";
+
+            // 检查舵角数据是否存在
+            if (!input.current_rudder.has_value())
+            {
+                error_code = 330;
+                error_msg = "协调转弯模式（舵角判断）需要提供当前舵角";
+                AERROR << error_msg;
+                break;
+            }
+
+            float current_rudder = input.current_rudder.value();
+
+            // 检查舵角是否在有效范围内 (-35° 到 +35°)
+            if (current_rudder < -35.0f || current_rudder > 35.0f)
+            {
+                error_code = 331;
+                error_msg = "舵角必须在-35°到+35°范围内";
+                AERROR << error_msg;
+                break;
+            }
+
+            // 舵角为0时表示直航，不进行协调转弯
+            if (std::abs(current_rudder) < 1.0f)
+            {
+                AINFO << "舵角(" << current_rudder << "°) ≈ 0°，直航状态，截流板全部收回";
+                new_left = 0.0f;
+                new_right = 0.0f;
+                break;
+            }
+
+            std::pair<float, float> result;
+            float rudder_magnitude = std::abs(current_rudder);
+
+            // 根据舵角大小选择控制策略
+            if (rudder_magnitude < 3.0f)
+            {
+                // 舵角小于3°：全部收回
+                AINFO << "舵角(" << current_rudder << "°) < 3°，截流板全部收回";
+                result = {0.0f, 0.0f};
+            }
+            else if (rudder_magnitude >= 3.0f && rudder_magnitude <= 5.0f)
+            {
+                // 舵角在上述范围内：保持当前状态
+                AINFO << "舵角(" << current_rudder << "°) 在3°~5°范围内，保持当前状态";
+                result = {input.left_current, input.right_current};
+            }
+            else
+            {
+                // 舵角大于5°：进行转向控制
+                AINFO << "舵角(" << current_rudder << "°) > 5°，进入转向控制";
+                result = PID_turn_large_control(current_rudder,
+                                                input.left_current,
+                                                input.right_current,
+                                                input.max_extension,
+                                                pid_big_turn);
+            }
+
+            new_left = result.first;
+            new_right = result.second;
+
+            AINFO << "[协调转弯] 最终伸缩量: 左=" << new_left << "mm, 右=" << new_right << "mm";
         }
-
-        float current_rudder = input.current_rudder.value();
-
-        // 检查舵角是否在有效范围内 (-35° 到 +35°)
-        if (current_rudder < -35.0f || current_rudder > 35.0f)
+        else if (coord_turn_select == 2)
         {
-            error_code = 331;
-            error_msg = "舵角必须在-35°到+35°范围内";
-            AERROR << error_msg;
-            break;
-        }
+            AINFO << "=============================切换为协调转弯模式（基于横摇角判断）========================";
 
-        // 舵角为0时表示直航，不进行协调转弯
-        if (std::abs(current_rudder) < 1.0f)
-        {
-            AINFO << "舵角(" << current_rudder << "°) ≈ 0°，直航状态，截流板全部收回";
-            new_left = 0.0f;
-            new_right = 0.0f;
-            break;
-        }
+            // 检查横摇角数据是否存在
+            if (!input.heel_current.has_value())
+            {
+                error_code = 330;
+                error_msg = "协调转弯模式（横摇角判断）需要提供当前横摇角";
+                AERROR << error_msg;
+                break;
+            }
 
-        std::pair<float, float> result;
-        float rudder_magnitude = std::abs(current_rudder);
+            // 获取当前横倾角
+            float current_roll_angle = input.heel_current.value();
+            float roll_magnitude = std::abs(current_roll_angle);
+            std::pair<float, float> result;
 
-        // 根据舵角大小选择控制策略
-        if (rudder_magnitude < 3.0f)
-        {
-            // 舵角小于3°：全部收回
-            AINFO << "舵角(" << current_rudder << "°) < 3°，截流板全部收回";
-            result = {0.0f, 0.0f};
-        }
-        else if (rudder_magnitude >= 3.0f && rudder_magnitude <= 5.0f)
-        {
-            // 舵角在上述范围内：保持当前状态
-            AINFO << "舵角(" << current_rudder << "°) 在3°~5°范围内，保持当前状态";
-            result = {input.left_current, input.right_current};
+            // 根据横倾角大小选择控制策略
+            if (roll_magnitude < 3.0f)
+            {
+                // 横倾角小于3°：全部收回
+                AINFO << "横倾角(" << current_roll_angle << "°) < 3°，截流板全部收回";
+                result = {0.0f, 0.0f};
+            }
+            else if (roll_magnitude >= 3.0f && roll_magnitude <= 5.0f)
+            {
+                // 横倾角在上述范围内：保持当前状态
+                AINFO << "横倾角(" << current_roll_angle << "°) 在范围内，保持当前状态";
+                result = {input.left_current, input.right_current};
+            }
+            else
+            {
+                // 横倾角大于5°：进行转向控制
+                AINFO << "横倾角(" << current_roll_angle << "°) > 5°，进入转向控制";
+                result = PID_turn_large_control_by_roll(current_roll_angle,
+                                                        input.left_current,
+                                                        input.right_current,
+                                                        input.max_extension,
+                                                        pid_big_turn);
+            }
+
+            new_left = result.first;
+            new_right = result.second;
+
+            AINFO << "[协调转弯] 最终伸缩量: 左=" << new_left << "mm, 右=" << new_right << "mm";
         }
         else
         {
-            // 舵角大于5°：进行转向控制
-            AINFO << "舵角(" << current_rudder << "°) > 5°，进入转向控制";
-            result = PID_turn_large_control(current_rudder,
-                                            input.left_current,
-                                            input.right_current,
-                                            input.max_extension,
-                                            pid_big_turn);
+            error_code = 333;
+            error_msg = "coord_turn_select 参数无效（应为1或2）";
+            AERROR << error_msg;
         }
 
-        new_left = result.first;
-        new_right = result.second;
-
-        // 检查变化量是否小于1mm（满足条件则保持当前值）
-        if (std::abs(new_left - input.left_current) < 1.0f)
-        {
-            AINFO << "左侧伸缩量变化小于1mm，保持当前值: " << input.left_current << "mm";
-            new_left = input.left_current;
-        }
-
-        if (std::abs(new_right - input.right_current) < 1.0f)
-        {
-            AINFO << "右侧伸缩量变化小于1mm，保持当前值: " << input.right_current << "mm";
-            new_right = input.right_current;
-        }
-
-        AINFO << "[协调转弯] 最终伸缩量: 左=" << new_left << "mm, 右=" << new_right << "mm";
         break;
     }
-
-    // // 协调转弯控制模式（第二种判断模式：横倾角判断）
-    // case 33:
-    // {
-    //     AINFO << "=============================切换为协调转弯模式（基于横摇角判断）========================";
-
-    //     float current_speed = input.current_speed.value();
-    //     AINFO << "当前接收到的速度" << current_speed
-    //           << "截流板当前阈值" << input.max_extension;
-
-    //     // 检查横摇角数据是否存在
-    //     if (!input.heel_current.has_value())
-    //     {
-    //         error_code = 330;
-    //         error_msg = "协调转弯模式（横摇角判断）需要提供当前横摇角";
-    //         AERROR << error_msg;
-    //         break;
-    //     }
-
-    //     // 获取当前横倾角
-    //     float current_roll_angle = input.heel_current.value();
-    //     float roll_magnitude = std::abs(current_roll_angle);
-    //     std::pair<float, float> result;
-
-    //     // 根据横倾角大小选择控制策略
-    //     if (roll_magnitude < 3.0f)
-    //     {
-    //         // 横倾角小于3°：全部收回
-    //         AINFO << "横倾角(" << current_roll_angle << "°) < 3°，截流板全部收回";
-    //         result = {0.0f, 0.0f};
-    //     }
-    //     else if (roll_magnitude >= 3.0f && roll_magnitude <= 5.0f)
-    //     {
-    //         // 横倾角在上述范围内：保持当前状态
-    //         AINFO << "横倾角(" << current_roll_angle << "°) 在范围内，保持当前状态";
-    //         result = {input.left_current, input.right_current};
-    //     }
-    //     else
-    //     {
-    //         // 横倾角大于5°：进行转向控制
-    //         AINFO << "横倾角(" << current_roll_angle << "°) > 5°，进入转向控制";
-    //         result = PID_turn_large_control_by_roll(current_roll_angle,
-    //                                                 input.left_current,
-    //                                                 input.right_current,
-    //                                                 input.max_extension,
-    //                                                 pid_big_turn);
-    //     }
-
-    //     new_left = result.first;
-    //     new_right = result.second;
-
-    //     // 检查变化量是否小于1mm（满足条件则保持当前值）
-    //     if (std::abs(new_left - input.left_current) < 1.0f)
-    //     {
-    //         AINFO << "左侧伸缩量变化小于1mm，保持当前值: " << input.left_current << "mm";
-    //         new_left = input.left_current;
-    //     }
-
-    //     if (std::abs(new_right - input.right_current) < 1.0f)
-    //     {
-    //         AINFO << "右侧伸缩量变化小于1mm，保持当前值: " << input.right_current << "mm";
-    //         new_right = input.right_current;
-    //     }
-
-    //     AINFO << "[协调转弯] 最终伸缩量: 左=" << new_left << "mm, 右=" << new_right << "mm";
-    //     break;
-    // }
 
     // 纵倾最优控制（暂时空置）
     case 34:
@@ -739,13 +752,13 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
         break;
     }
 
-    // 横倾控制模式 备份
+    // 横倾最优模式 备份
     case 35:
     {
         if (!input.heel_current.has_value())
         {
             error_code = 350;
-            error_msg = "横倾模式需要提供当前横倾角度";
+            error_msg = "横倾最优模式需要提供当前横倾角度";
             AERROR << error_msg; // 使用AERROR宏
             break;
         }
