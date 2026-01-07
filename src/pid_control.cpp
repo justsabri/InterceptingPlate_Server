@@ -260,18 +260,28 @@ private:
                                               float right_current,
                                               float max_extension)
     {
-        // 物理范围限制
+        // 物理范围限制：将目标伸缩量限制在 [0, max_extension] 范围内，
+        // 防止传入非法负值或超过机械极限的值导致越界。
         float new_ext = std::max(0.0f, std::min(target_ext, max_extension));
 
-        // 防抖动处理（基于当前平均值）
+        // 防抖动处理（基于当前平均值）：
+        // 计算左右当前伸缩量的平均值，作为当前系统的基线值，
+        // 之所以采用平均值，是因为左右两个执行机构通常应协同工作，
+        // 用平均值可以平滑单侧噪声或瞬时抖动带来的影响。
         float current_avg_ext = (left_current + right_current) / 2.0f;
+
+        // 默认最终伸缩量为经过物理限制后的目标值
         float final_ext = new_ext;
 
+        // 若目标值与当前平均值的差异小于阈值（1mm），则视为抖动或微小调整，
+        // 此时保持当前平均值不变以避免执行机构频繁小幅动作。
         if (std::abs(new_ext - current_avg_ext) < 1.0f)
         {
             final_ext = current_avg_ext;
         }
 
+        // 目前返回左右相同的伸缩量对（对称控制）。若后续需要非对称动作，
+        // 可在此处修改为返回不同的左右值。
         return {final_ext, final_ext};
     }
 };
@@ -294,7 +304,7 @@ std::pair<float, float> PID_turn_large_control(float current_rudder,
     float target_extension = max_extension;
     AINFO << "大角度转向，目标伸缩量: " << target_extension << "mm";
 
-    // 根据转向方向设置控制策略
+    // 根据转向方向设置控制模式
     float left_target = 0.0f;
     float right_target = 0.0f;
 
@@ -371,7 +381,7 @@ std::pair<float, float> PID_turn_large_control_by_roll(float current_roll_angle,
     float target_extension = max_extension;
     AINFO << "大角度横倾，目标伸缩量: " << target_extension << "mm";
 
-    // 根据横倾方向设置控制策略
+    // 根据横倾方向设置控制模式
     float left_target = 0.0f;
     float right_target = 0.0f;
 
@@ -477,9 +487,9 @@ std::pair<float, float> PID_heel_control(const PID_Input &input, PIDController &
 
 // 协调转弯通用函数：coord_turn_select=1 使用舵角判断，=2 使用横摇/横倾角判断
 std::pair<float, float> PID_coord_turn_control(const PID_Input &input, // 输入参数，为常量，不可修改
-                                              int coord_turn_select,   // 判断模式选择
-                                              int &error_code,         // 错误代码引用，为非常量，可修改
-                                              std::string &error_msg)  // 错误信息引用，为非常量，可修改
+                                               int coord_turn_select,  // 判断模式选择
+                                               int &error_code,        // 错误代码引用，为非常量，可修改
+                                               std::string &error_msg) // 错误信息引用，为非常量，可修改
 {
     float new_left = input.left_current;
     float new_right = input.right_current;
@@ -676,28 +686,237 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
     {
 
         // 日志打印使用说明
-        // AINFO << "信息";
-        // AWARN << "警告";
-        // AERROR << "错误";
-        // AFATAL << "致命错误";
+        // AINFO << "信息"，绿色，仅仅记录;
+        // AWARN << "警告"，黄色，记录并提醒可能存在的问题;
+        // AERROR << "错误"，红色，记录并提醒存在的问题，需要处理;
+        // AFATAL << "致命错误"，红色加粗，程序终止，记录并提醒存在的严重问题，程序无法继续运行;
 
     // 自动模式
     case 1:
     {
         AINFO << "=============================切换为自动模式========================";
 
-        // 现在需要开发自动模式，其他模式的功能整合在自动模式中
-        // 自动模式下，优先判断舵角，若舵角绝对值≥10，切换协调转弯；舵角在(5,10)之间，保持当前状态；舵角≤5，切换到下一步；
-        // 其次判断主机转速，同时实时记录五秒以上的注意转速，若主机转速，在10s内转速下降至800rpm以下，且平均每秒下降300rpm以上，则切换辅助急停模式；
-        // 然后判断横摇，若横摇绝对值≥5，切换横倾最优；横摇在(2,5)之间，保持当前状态；横摇≤2，切换下一步；
-        // 其他情况下，切换为航速最优模式。
-    
+        // 输出结果仍然使用 mode=1，表明调用方传入的是自动模式（而不是把子模式替回去）
+        // 内部我们根据实时数据选择合适的子策略（航速最优/辅助急停/协调转弯/横倾最优），
+        // 但不改变外部传入的 mode 字段（保持外部可见为自动）。
 
+        // ========== 静态变量用于状态保持 ==========
+        // static 关键字在函数作用域声明变量后，该变量在函数多次调用间保持其值不被销毁。
+        // 这里用来记住上一次自动选择的逻辑状态，避免每次都清空历史数据或状态。
+        static int current_logic_state = 31; // 31:航速最优, 32:辅助急停, 33:协调转弯, 35:横倾最优
+
+        // speed_history 存放最近若干个时间点的主机转速，用于检测短时间内转速是否快速下降（急停）
+        // 说明：
+        // - std::deque 是双端队列，支持从头尾高效插入和删除；适合用来维护时间窗口的数据。
+        // - std::pair<time_t,float> 表示一条记录，first=time_t（时间戳），second=float（对应RPM）。
+        static std::deque<std::pair<time_t, float>> speed_history;
+
+        // ========== 参数检查（必须字段） ==========
+        // has_value() 用于检查 std::optional 是否包含值；若没有值我们不能继续自动判别。
+        if (!input.current_RPM.has_value() || !input.current_rudder.has_value() ||
+            !input.heel_current.has_value())
+        {
+            // 当必要字段缺失时，设置错误信息并退出当前 case（保留现有 new_left/new_right）
+            error_msg = "自动模式需要提供主机转速、舵角和横倾角度";
+            AERROR << error_msg;
+            error_code = 101;
+            break; // 终止 case 1，返回默认或之前的截流板值
+        }
+
+        // 从 std::optional 安全取值：value() 在 has_value() 为 true 时返回内部值
+        float current_RPM = input.current_RPM.value();
+        float current_rudder = input.current_rudder.value();
+        float heel_current = input.heel_current.value();
+
+        // ========== 辅助急停检测（优先级最高） ==========
+        // 思路：维护最近 10 秒的 RPM 记录，判断短时间（≤5s）内是否从高 RPM 跌至低 RPM，且降速足够快
+        // 如果满足条件则切换到辅助急停（current_logic_state = 32）以保证安全。
+
+        // time(nullptr) 返回当前时间（time_t），用于构建时间序列
+        time_t current_time = time(nullptr);
+        // 将当前时间和 RPM 压入队列尾部
+        speed_history.push_back(std::make_pair(current_time, current_RPM));
+
+        // 清理早于 10 秒前的记录，保持队列只包含最近 10 秒的数据
+        while (!speed_history.empty() &&
+               (current_time - speed_history.front().first) > 10)
+        {
+            // pop_front() 从队首移除最早的记录
+            speed_history.pop_front();
+        }
+
+        // 默认未检测到急停
+        bool emergency_brake_detected = false;
+
+        // 只有当队列中至少有2条记录时，才有意义计算时间差和速度变化
+        if (speed_history.size() >= 2)
+        {
+            // 使用引用避免拷贝；front() 返回队首元素，back() 返回队尾元素
+            auto &oldest = speed_history.front();
+            auto &newest = speed_history.back();
+
+            // difftime 返回两个 time_t 之间的差（以秒为单位，返回 double）
+            float time_diff = difftime(newest.first, oldest.first);
+
+            // 限制检测窗口：只关注跨度不超过 5 秒且大于 0 的情况
+            if (time_diff <= 5.0 && time_diff > 0)
+            {
+                // speed_diff 表示在该时间窗口内 RPM 的下降量
+                float speed_diff = oldest.second - newest.second;
+                // avg_descent_rate 为平均每秒下降多少 RPM（可能为正值表示下降）
+                float avg_descent_rate = speed_diff / time_diff;
+
+                // 判定条件（示例阈值，可根据实际船舶数据调整）：
+                // - 起始 RPM 较高（>=1800）且最新 RPM 已非常低（<=800），表示明显降速；
+                // - 平均降速速率 >= 100 rpm/s（阈值可灵活调整）
+                if (oldest.second >= 1800.0f &&
+                    newest.second <= 800.0f &&
+                    avg_descent_rate >= 100.0f)
+                {
+                    // 标记检测到急停，切换内部逻辑为辅助急停
+                    emergency_brake_detected = true;
+                    current_logic_state = 32; // 32 表示辅助急停
+                    AINFO << "[自动模式] 检测到急停条件，使用辅助急停模式";
+                }
+            }
+        }
+
+        // ========== 如果不是急停，按优先级判断其他模式 ==========
+        if (!emergency_brake_detected)
+        {
+            // 优先级1: 协调转弯 (舵角绝对值≥10)
+            if (fabs(current_rudder) >= 10.0f)
+            {
+                current_logic_state = 33; // 协调转弯
+                AINFO << "[自动模式] 舵角" << current_rudder << "°，使用协调转弯模式";
+            }
+            // 优先级2: 舵角在(5,10)之间保持当前状态
+            else if (fabs(current_rudder) > 5.0f && fabs(current_rudder) < 10.0f)
+            {
+                AINFO << "[自动模式] 舵角" << current_rudder << "°，保持当前模式";
+                // current_logic_state 不变
+            }
+            // 优先级3: 舵角≤5时判断横摇
+            else
+            {
+                // 横摇绝对值≥5，使用横倾最优模式
+                if (fabs(heel_current) >= 5.0f)
+                {
+                    current_logic_state = 35; // 横倾最优
+                    AINFO << "[自动模式] 横摇" << heel_current << "°，使用横倾最优模式";
+                }
+                // 横摇在(3,5)之间保持当前状态
+                else if (fabs(heel_current) > 3.0f && fabs(heel_current) < 5.0f)
+                {
+                    AINFO << "[自动模式] 横摇" << heel_current << "°，保持当前模式";
+                    // current_logic_state 不变
+                }
+                // 横摇≤3，使用航速最优模式
+                else
+                {
+                    current_logic_state = 31; // 航速最优
+                    AINFO << "[自动模式] 横摇" << heel_current << "°，使用航速最优模式";
+                }
+            }
+        }
+
+        // ========== 根据选择的逻辑状态执行相应的控制模式 ==========
+        // 直接复制case 31-35的代码，但只在内部使用
+        switch (current_logic_state)
+        {
+        case 31: // 航速最优模式 (对应原case 31)
+        {
+            AINFO << "[自动模式-航速最优模式]";
+
+            AINFO << "当前接收到的速度" << current_speed
+                  << "截流板当前阈值" << input.max_extension;
+
+            SpeedOptimizer optimizer;
+            auto result = optimizer.compute_optimal_extension(
+                current_speed,
+                input.left_current,
+                input.right_current,
+                input.max_extension);
+
+            new_left = result.first;
+            new_right = result.second;
+
+            AINFO << "[自动模式-航速最优] 目标伸缩量: 左=" << new_left
+                  << "mm, 右=" << new_right << "mm";
+            break;
+        }
+
+        case 32: // 辅助急停模式 (对应原case 32)
+        {
+            AINFO << "[自动模式-辅助急停模式]";
+
+            AINFO << "当前接收到的速度" << current_speed
+                  << "截流板当前阈值" << input.max_extension;
+
+            SpeedOptimizer optimizer;
+            auto result = optimizer.compute_brake_extension(
+                current_speed,
+                input.left_current,
+                input.right_current,
+                input.max_extension);
+
+            new_left = result.first;
+            new_right = result.second;
+
+            AINFO << "[自动模式-辅助急停] 目标伸缩量: 左=" << new_left
+                  << "mm, 右=" << new_right << "mm";
+            break;
+        }
+
+        case 33: // 协调转弯模式 (对应原case 33)
+        {
+            AINFO << "[自动模式-协调转弯模式]";
+
+            // 使用舵角判断
+            int coord_turn_select = 1;
+
+            auto result = PID_coord_turn_control(
+                input,
+                coord_turn_select,
+                error_code,
+                error_msg);
+
+            new_left = result.first;
+            new_right = result.second;
+
+            if (error_code != 0)
+            {
+                AERROR << error_msg;
+            }
+
+            AINFO << "[自动模式-协调转弯] 最终伸缩量: 左=" << new_left << "mm, "
+                  << "右=" << new_right << "mm";
+            break;
+        }
+
+        case 35: // 横倾最优模式 (对应原case 35)
+        {
+            AINFO << "[自动模式-横倾最优模式]";
+
+            if (!input.heel_current.has_value())
+            {
+                error_code = 350;
+                error_msg = "横倾最优模式需要提供当前横倾角度";
+                AERROR << error_msg;
+                break;
+            }
+
+            auto result = PID_heel_control(input, pid_heel);
+            new_left = result.first;
+            new_right = result.second;
+            break;
+        }
+        }
 
         break;
     }
 
-        // [暂时空置] （原暂定节能）
+    // [暂时空置] （原暂定节能）
     case 2:
     {
         AINFO << "[暂时空置] （原暂定节能）"; // 使用AINFO宏
