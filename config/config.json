@@ -1,9 +1,5 @@
 {
     "motors" : {
-        "0x001" : {
-            "location" : "left",
-            "motor_offset_positon":0.0
-        },
         "0x002" : {
             "location" : "left",
             "motor_offset_positon":0.0
@@ -11,16 +7,12 @@
         "0x003" : {
             "location" : "right",
             "motor_offset_positon":0.0
-        },
-        "0x004" : {
-            "location" : "right",
-            "motor_offset_positon":0.0
         }
     },
     "motor_freq" : 10,
     "imu_freq" : 30,
     "pc_freq" : 1,
-    "cb_freq" : 1,
+    "cb_freq" : 10,
     "max_ext" : 50.0,
     "altitude" : 0.0,
     "ext2deg" : {
@@ -28,5 +20,6 @@
         "b" : 30,
         "x_min" : -60,
         "x_max" : 53
-    }
+    },
+    "save_data" : true
 }

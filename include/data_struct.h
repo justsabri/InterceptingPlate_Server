@@ -57,15 +57,19 @@
 struct ImuData {
     float roll;          // 横倾角 (-40°~40°)
     float pitch;         // 纵倾角 (-30°~30°)
-    float yaw;
     float rudder;        // 舵角 (-30°~30°)
     float speed;         // 航速 (0~80kn)
     float rpm;           // 主机转速 (0~5000rpm)
     uint32_t timestamp;  // UNIX时间戳
     std::string gps_time;
     float heading;
-    float latitude;
-    float longitude;
+    double latitude;
+    double longitude;
+    float yaw;
+    float left_rpm; //左侧主机转速
+    float right_rpm; //右侧主机转速
+    int left_gear; //左侧主机挡位
+    int right_gear; //右侧主机挡位
 };
 
 // 电机错误状态结构体
@@ -133,12 +137,18 @@ struct ImuStateData
   float roll;           // 横倾角
   float speed;          // 航速
   float rpm;           // 主机转速 (0~5000rpm)
+  double latitude;
+  double longitude;
   std::string gps_time; // GPS时间（北京时间，年月日时分秒）
   //---------------------1、船舶当前舵角-------------------------------------
   // 20250822 田鸿宇 新算法用到  船舶  舵角参数
   // 船舶当前舵角
   float current_rudder;
-  //---------------------1、船舶当前舵角-------------------------------------
+  
+  float left_rpm; //左侧主机转速
+  float right_rpm; //右侧主机转速
+  int left_gear; //左侧主机挡位
+  int right_gear; //右侧主机挡位
 };
 //下位机状态
 struct PCStateData {

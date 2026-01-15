@@ -58,6 +58,17 @@ private:
         float getMaxExtensionRatio(float speed /*kn*/)
         {
             float ratio = 1.0;
+
+            // 放开阈值限制
+            if (speed < 40) {
+                ratio = 1.0;
+            } else if (speed < 50) {
+                ratio = 0.5;
+            } else {
+                ratio = 0.25;
+            }
+            return ratio;
+
             if (speed <= 20)
             {
                 return ratio;
@@ -65,6 +76,7 @@ private:
             else if (speed <= 40)
             {
                 ratio = 2.2 - 0.06 * speed;
+                // ratio = (speed - 40) * (speed - 40) * (speed - 40) * (speed - 40) * 4 / 2025;
                 //-----------会存在小于0------------------
                 if (ratio < 0.0)
                 {
@@ -124,4 +136,14 @@ private:
     SafeExtension safe_ext_;
 
     std::mutex data_mutex_;
+
+    // 数据记录相关成员变量
+    std::ofstream csv_file_;
+    std::string csv_filename_;
+    std::mutex csv_mutex_;
+
+    // 数据记录相关方法
+    void initCSVFile();
+    void writeCSVData();
+    void closeCSVFile();
 };

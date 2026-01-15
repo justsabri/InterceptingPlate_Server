@@ -6,6 +6,7 @@
 #include <fstream>
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <iomanip>
 #include "data_center.h"
 #include "motor.h"
 #include "controller.h"
@@ -155,6 +156,15 @@ void MotorMonitorThread::MonitoringLoop()
         // 阻塞等待新数据
         if (!motor_data_queue.Pop(motors) || motors.size() != motor_position_offset_.motor_num)
         {
+            continue;
+        }
+
+
+        // 开机30s后开始监测
+        auto start_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                               std::chrono::steady_clock::now() - start_time)
+                               .count();
+        if (start_elapsed <= 5) {
             continue;
         }
 
@@ -315,7 +325,7 @@ void MotorMonitorThread::MonitoringLoop()
                 {
                     motor_state_[motor_index].alarm_code = 108;
                 }
-                else if (data.position < -2 || data.position > motor_position_offset_.max_deg + 2)
+                else if (data.position < -2 || data.position > motor_position_offset_.max_deg + 4)
                 {
                     if (++error_counters[motor_index][109] >= 1)
                     {
@@ -387,6 +397,7 @@ ImuStateData ImuMonitorThread::GetImuStatus()
 void ImuMonitorThread::MonitoringLoop()
 {
     pthread_setname_np(pthread_self(), "imu_mt"); // 设置线程名
+    auto start_time = std::chrono::steady_clock::now();
     //=================================================================================
     if (PID_CONTROL_TEST) // 测试控制算法
     {
@@ -397,7 +408,7 @@ void ImuMonitorThread::MonitoringLoop()
 
             // 阻塞等待新数据
             if (!imu_data_queue.Pop(data))
-                break;
+                continue;
             imu_state_.alarm_code = 201; // 这个代表 惯导正常
 
             // // 惯导断连检测
@@ -535,7 +546,14 @@ void ImuMonitorThread::MonitoringLoop()
             AINFO << "准备从队列Pop数据...";
             // 阻塞等待新数据
             if (!imu_data_queue.Pop(data))
-                break;
+                continue;
+            // 开机30s后开始监测
+            auto start_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::steady_clock::now() - start_time)
+                                .count();
+            if (start_elapsed <= 5) {
+                continue;
+            }
             AINFO << "从队列Pop出的数据 - 时间戳: " << data.timestamp << ", 航速: " << data.speed;
             imu_state_.alarm_code = 201;
 
@@ -652,8 +670,15 @@ void ImuMonitorThread::MonitoringLoop()
             //     std::lock_guard<std::mutex> lock(status_mutex_);
             //     imu_state_.alarm_code = 206;
             // }
-            // imu_state_.latitude = data.latitude;
-            // imu_state_.longitude = data.longitude;
+            AINFO << "惯导经纬度: 经度=" << std::fixed << std::setprecision(8) << data.longitude
+                  << "°, 纬度=" << std::fixed << std::setprecision(8) << data.latitude << "°" << std::endl;
+            imu_state_.latitude = data.latitude;
+            imu_state_.longitude = data.longitude;
+
+            imu_state_.left_gear = data.left_gear;
+            imu_state_.left_rpm = data.left_rpm;
+            imu_state_.right_gear = data.right_gear;
+            imu_state_.right_rpm = data.right_rpm;
 
             // 定位状态检测
             // AINFO << "data.GNSS_staus " << data.GNSS_staus;
@@ -761,6 +786,7 @@ PCStateData LinuxPcMonitorThread::GetPCStatus()
 void LinuxPcMonitorThread::MonitoringLoop()
 {
     pthread_setname_np(pthread_self(), "pc_mt"); // 设置线程名
+    auto start_time = std::chrono::steady_clock::now();
     while (running_)
     {
         LinuxPcData data;
@@ -768,10 +794,18 @@ void LinuxPcMonitorThread::MonitoringLoop()
         // 阻塞等待新数据
         if (!pc_data_queue.Pop(data))
             continue;
+        // 开机30s后开始监测
+        auto start_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                               std::chrono::steady_clock::now() - start_time)
+                               .count();
+        if (start_elapsed <= 30) {
+            continue;
+        }
         pc_state_.alarm_code = 301;
 
         // === 主监控项（每100秒更新）===
         // 温度异常检测
+	AINFO << "PC temperature" << data.temperature;
         if (data.temperature > 100)
         {
             AWARN << "PC温度异常: " << data.temperature << "℃" << std::endl;
@@ -779,7 +813,7 @@ void LinuxPcMonitorThread::MonitoringLoop()
         }
 
         // === CPU监控（每10秒更新）===
-        if (data.cpu_usage > 400)
+        if (data.cpu_usage > 70)
         {
             AWARN << "CPU使用率过高: " << data.cpu_usage << "%" << std::endl;
             pc_state_.alarm_code = 303;

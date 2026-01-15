@@ -3,6 +3,7 @@
 #include <cstring>
 #include <log.h>
 #include <set>
+#include <cerrno>
 
 uint64_t htonll(uint64_t value) {
     if constexpr (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) {
@@ -94,13 +95,13 @@ void TcpServer::stop() {
 
 void TcpServer::serverLoop() {
     while (running_) {
-        AINFO << "Waiting for new client..." << std::endl;
+        AINFO << "Waiting for new client..." << server_fd <<std::endl;
         // 4. 接收客户端连接
         sockaddr_in client_addr{};
         socklen_t client_len = sizeof(client_addr);
         client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_len);
         if (client_fd < 0) {
-            AERROR << "accept failed";
+            AERROR << "accept failed" << strerror(errno);
             continue;
         }
         AINFO << "Client connected.";

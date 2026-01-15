@@ -13,8 +13,7 @@
 #include "data_struct.h"
 #include "log.h"
 
-class UdpDataServer
-{
+class UdpDataServer {
 private:
     int server_fd;
     int port;
@@ -30,9 +29,11 @@ private:
 
     // 私有方法
     void receiverLoop();
-    float bigEndianToFloat(const uint8_t *data);
-    uint32_t bigEndianToUint32(const uint8_t *data);
-    ImuData parseData(uint8_t *buffer, size_t length);
+    float bigEndianToFloat(const uint8_t* data);
+    uint32_t bigEndianToUint32(const uint8_t* data);
+    double bigEndianToDouble(const uint8_t* data);
+    ImuData parseData(const uint8_t* buffer, size_t length);
+    bool validateData(const ImuData& data);
 
 public:
     /**
@@ -47,8 +48,8 @@ public:
     ~UdpDataServer();
 
     // 禁止拷贝构造和赋值
-    UdpDataServer(const UdpDataServer &) = delete;
-    UdpDataServer &operator=(const UdpDataServer &) = delete;
+    UdpDataServer(const UdpDataServer&) = delete;
+    UdpDataServer& operator=(const UdpDataServer&) = delete;
 
     /**
      * 启动UDP数据服务器（完成所有初始化并开始监听）
@@ -79,6 +80,11 @@ public:
      */
     int getPort() const { return port; }
 
+    /**
+     * 获取服务器状态信息
+     * @return 状态描述字符串
+     */
+    std::string getStatus() const;
 };
 
 #endif // UDP_DATA_SERVER_H

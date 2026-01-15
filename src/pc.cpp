@@ -18,7 +18,8 @@ std::string LinuxPc::readFile(const std::string& path) {
 float LinuxPc::getCPUTemperature() {
     // 尝试不同温度传感器路径
     const std::vector<std::string> paths = {
-        "/sys/class/thermal/thermal_zone0/temp",
+        // "/sys/class/thermal/thermal_zone0/temp",
+	"/sys/devices/platform/PHYT0008:00/PHYT000D:00/hwmon/hwmon0/temp2_input",
     };
 
     for (const auto& path : paths) {

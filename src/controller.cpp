@@ -4,6 +4,9 @@
 #include <filesystem>
 #include <fstream>
 #include "data_center.h"
+#include <chrono>
+#include <iomanip>
+
 
 Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
                                         auto_mode_(0) {
@@ -26,6 +29,9 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
 
     ctl_params_.auto_mode = 0xFF;
     ctl_params_.auto_mode = 0xFF;
+
+    // 初始化CSV文件
+    initCSVFile();
 }
 
 void Controller::start() {
@@ -34,7 +40,7 @@ void Controller::start() {
 
     fs::path config_path = fs::current_path() / "config/config.json";
     AINFO << "JSON" << config_path << "cur " << fs::current_path();
-    
+
     if (!fs::exists(config_path)) {
         AINFO << "Config file does not exist: " << config_path;
         return;
@@ -83,12 +89,13 @@ void Controller::start() {
     for (auto id : config_info_.right_motor) {
     AINFO << id;
     }
+
     // 初始化算法
     std::function<void(AlgResult&)> alg_cb = [this](AlgResult res) {
         thread_pool_.enqueue([this](const AlgResult res) {
             AERROR<<"调用自动算法"<<res.new_left<<res.new_right;
             excuteAlgCmd(res);
-        }, res);    
+        }, res);
     };
 
     alg_processor_->set_callback(alg_cb);
@@ -121,6 +128,8 @@ void Controller::start() {
         }
         sendDataToClient(STATE_DATA, (void*)&monitor_pack_);
         tryHandleError();
+        // 写入CSV数据
+        writeCSVData();
     };
 
     monitor_system_ = std::make_unique<MonitoringSystem>();
@@ -506,13 +515,13 @@ void Controller::convertStructToJson(Data_Type type, void* data, json &j) {
                     {"enable", true},
                     {"motor_num", config_info_.motor_num},
                     {"motor_alarm_code",m_a_c},
-                    {"imu_alarm_code",pack.imu_state.alarm_code},
+                    {"imu_alarm_code",201},
                     {"controller_alarm_code",pack.pc_state.alarm_code}
                 };
 
                 j["data"]["attitude"] = {
                     {"enable", true},
-                    {"pitch_deg", pack.imu_state.pitch},
+                    {"pitch_deg", -pack.imu_state.pitch},
                     {"roll_deg", pack.imu_state.roll}
                 };
 
@@ -746,6 +755,8 @@ void Controller::tryProcess()
         alg_package_.in.heel_current = alg_package_.imu_data.value().roll;
         alg_package_.in.left_current =  thetaToY(alg_package_.motor_data.value()[0].position);
         alg_package_.in.right_current = thetaToY(alg_package_.motor_data.value()[2].position);
+        alg_package_.in.current_RPM = alg_package_.imu_data.value().rpm;
+        alg_package_.in.current_rudder = alg_package_.imu_data.value().rudder;
         alg_package_.in.max_extension = safe_ext_.getMaxExtensionRatio(speed) * config_info_.max_ext;
 
 
@@ -862,4 +873,127 @@ double Controller::yToTheta(double y) {
     }
     AINFO << "y2t " << y << " - " << result_deg;
     return result_deg;
+}
+
+// 初始化CSV文件
+void Controller::initCSVFile() {
+    namespace fs = std::filesystem;
+
+    // 创建data目录
+    fs::path data_dir = fs::current_path() / "data";
+    if (!fs::exists(data_dir)) {
+        fs::create_directory(data_dir);
+        AINFO << "Created data directory: " << data_dir;
+    }
+
+    // 生成带时间戳的文件名
+    auto now = std::chrono::system_clock::now();
+    auto now_c = std::chrono::system_clock::to_time_t(now);
+    std::tm local_tm;
+    localtime_r(&now_c, &local_tm);
+
+    std::stringstream ss;
+    ss << "data_" << std::put_time(&local_tm, "%Y%m%d_%H%M%S") << ".csv";
+    csv_filename_ = ss.str();
+
+    // 打开CSV文件
+    csv_file_.open(data_dir / csv_filename_, std::ios::out | std::ios::trunc);
+    if (!csv_file_.is_open()) {
+        AERROR << "Failed to open CSV file: " << data_dir / csv_filename_;
+        return;
+    }
+
+    // 写入表头
+    csv_file_ << "时间戳(ms),航速(kn),纵倾角(°),横倾角(°),经度(°),纬度(°),左侧截流板伸缩量(mm),右侧截流板伸缩量(mm),左主机转速(rpm),右主机转速(rpm),左主机挡位,右主机挡位" << std::endl;
+    AINFO << "Initialized CSV file: " << data_dir / csv_filename_;
+}
+
+// 写入CSV数据
+void Controller::writeCSVData() {
+    static size_t file_size = 0;
+    std::lock_guard<std::mutex> l(csv_mutex_);
+
+    if (!csv_file_.is_open()) {
+        AERROR << "CSV file is not open, skipping write.";
+        return;
+    }
+
+    // 获取当前时间戳（毫秒）
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    auto timestamp = now_ms.time_since_epoch().count();
+
+    // 数据来源：从alg_package_或monitor_pack_中获取
+    float speed = 0.0;
+    float pitch = 0.0;
+    float roll = 0.0;
+    double longitude = 0.0;
+    double latitude = 0.0;
+    double left_extension = 0.0;
+    double right_extension = 0.0;
+    float left_rpm = 0.0; //左侧主机转速
+    float right_rpm = 0.0; //右侧主机转速
+    int left_gear = 0.0; //左侧主机挡位
+    int right_gear = 0.0; //右侧主机挡位
+
+    // 从monitor_pack_获取数据
+    {
+        std::lock_guard<std::mutex> l(data_mutex_);
+        speed = monitor_pack_.imu_state.speed;
+        pitch = monitor_pack_.imu_state.pitch;
+        roll = monitor_pack_.imu_state.roll;
+
+
+        longitude = monitor_pack_.imu_state.longitude;
+        latitude = monitor_pack_.imu_state.latitude;
+
+        // 获取左侧截流板伸缩量
+        if (monitor_pack_.motor_state.count(config_info_.left_motor[0]) > 0) {
+            left_extension = thetaToY(monitor_pack_.motor_state[config_info_.left_motor[0]].plate);
+        }
+
+        // 获取右侧截流板伸缩量
+        if (monitor_pack_.motor_state.count(config_info_.right_motor[0]) > 0) {
+            right_extension = thetaToY(monitor_pack_.motor_state[config_info_.right_motor[0]].plate);
+        }
+        
+        left_rpm = monitor_pack_.imu_state.left_rpm;
+        right_rpm = monitor_pack_.imu_state.right_rpm;
+        left_gear = monitor_pack_.imu_state.left_gear;
+        right_gear = monitor_pack_.imu_state.right_gear;
+    }
+
+    // 写入数据
+    csv_file_ << timestamp << ","
+              << speed << ","
+              << pitch << ","
+              << roll << ","
+              << std::fixed << std::setprecision(8) << longitude << ","
+              << std::fixed << std::setprecision(8) << latitude << ","
+              << left_extension << ","
+              << right_extension << ","
+              << left_rpm << ","
+              << right_rpm << ","
+              << left_gear << ","
+              << right_gear << std::endl;
+
+    // 刷新缓冲区，确保数据及时写入
+    csv_file_.flush();
+    file_size += 110;
+
+    if (file_size > 10 * 1024 * 1024) {
+        csv_file_.close();
+        file_size = 0;
+        initCSVFile();
+    }
+}
+
+// 关闭CSV文件
+void Controller::closeCSVFile() {
+    std::lock_guard<std::mutex> l(csv_mutex_);
+
+    if (csv_file_.is_open()) {
+        csv_file_.close();
+        AINFO << "Closed CSV file: " << csv_filename_;
+    }
 }

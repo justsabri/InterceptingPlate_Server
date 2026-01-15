@@ -12,10 +12,32 @@
 
 #include <glog/logging.h>
 #include <log.h>
+#include <nlohmann/json.hpp>
+#include <iostream>
 
 // 构造函数：初始化 stopFlag
 AlgProcessor::AlgProcessor() : stop_flag_(false), save_data_(false), thread_pool_(1)
 {
+  // 读取配置
+    namespace fs = std::filesystem;
+
+    std::string config_path = "config/config.json";
+    std::cout << "JSON" << config_path << std::endl;
+
+    if (!fs::exists(config_path)) {
+        std::cout << "Config file does not exist: " << config_path << std::endl;
+        return;
+    }
+
+    std::ifstream config_file(config_path);
+
+    if (!config_file) {
+        std::cout << "JSON fail" << config_path << std::endl;
+        return;
+    }
+
+    nlohmann::json config = nlohmann::json::parse(config_file);
+    save_data_ = config["save_data"];
   if (save_data_)
   {
     file_name_ = get_now_string("%Y-%m-%d_%H-%M-%S") + ".csv";
@@ -144,7 +166,7 @@ void AlgProcessor::save_data(AlgInput in, AlgResult res)
   float left_current = in.left_current;                                                       // 左侧截流板当前伸缩量（单位：毫米）
   float right_current = in.right_current;                                                     // 右侧截流板当前伸缩量（单位：毫米）
   float max_extension = in.max_extension;                                                     // 截流板最大允许伸缩量（单位：毫米）
-  float current_heading = in.current_heading.has_value() ? in.current_heading.value() : -361; // 船舶当前艏向
+  float current_RPM = in.current_RPM.has_value() ? in.current_RPM.value() : 0; // 船舶当前艏向
   float current_rudder = in.current_rudder.has_value() ? in.current_rudder.value() : -361;
 
   float new_left = res.new_left;   // 更新后的左侧伸缩量
@@ -161,7 +183,7 @@ void AlgProcessor::save_data(AlgInput in, AlgResult res)
   }
   file << "'" << time << "'" << "," << mode << "," << current_speed << "," << pitch_current << ","
        << pitch_target << "," << heel_current << "," << heel_target << "," << left_current << ","
-       << right_current << "," << max_extension << "," << current_heading << "," << current_rudder << ","
+       << right_current << "," << max_extension << "," << current_RPM << "," << current_rudder << ","
        << new_left << "," << new_right << "," << error_code << "\n";
   file.close();
 }

@@ -171,7 +171,9 @@ void show_motor_menu(Motor& motor) {
 }
 
 int main() {
-    InitLog("Test");
+    namespace fs = std::filesystem;
+    fs::path log_path = fs::current_path() / "log";
+    InitLog("Test", log_path.string().c_str(), 10);
 
     // 初始化 4 个电机
     int res = MotorParser::getInstance().init("can0", true);
