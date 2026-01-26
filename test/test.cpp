@@ -65,11 +65,15 @@ void show_motor_menu(Motor& motor) {
         double max = MotorParser::getInstance().getMaxForwardPosition(motor.id);
         double min = MotorParser::getInstance().getMinReservePosition(motor.id);
         double voltage = MotorParser::getInstance().getEncoderBatteryVoltage(motor.id)*0.01;
+        double positive_speed = MotorParser::getInstance().getMaxForwardSpeed(motor.id);
+        double negative_speed = MotorParser::getInstance().getMinReverseSpeed(motor.id);
         std::cout << "\n===== 电机 " << motor.id << " =====\n";
         std::cout << "当前位置: " << motor.position << "°\n";
         std::cout << "偏移位置: " << std::fixed << std::setprecision(0) << motor.offset << "\n";
         std::cout << "最大允许位置: " << max << "°\n";
         std::cout << "最小允许位置: " << min << "°\n";
+        std::cout << "最小正向速度: " << positive_speed << "°/s\n";
+        std::cout << "最大负向速度: " << negative_speed << "°/s\n";
         std::cout << std::fixed << std::setprecision(2);
         std::cout << "编码器电池电压: " << voltage << " v\n";
         std::cout << "----------------------\n";
@@ -81,7 +85,9 @@ void show_motor_menu(Motor& motor) {
         std::cout << "6) 设置当前位置为零点\n";
         std::cout << "7) 设置最大允许位置：（角度）\n";
         std::cout << "8) 设置最小允许位置：（角度）\n";
-        std::cout << "9) 刷新电机状态\n";
+        std::cout << "9) 设置最大正向速度：（角度/秒）\n";
+        std::cout << "10) 设置最大负向速度：（角度/秒）\n";
+        std::cout << "11) 刷新电机状态\n";
         std::cout << "b) 返回上一级\n";
         std::cout << "> " << std::flush;
 
@@ -149,7 +155,7 @@ void show_motor_menu(Motor& motor) {
                 continue;
             }
             MotorParser::getInstance().setMaxForwardPosition(theta, motor.id);
-            MotorParser::getInstance().flush(motor.id);    
+            MotorParser::getInstance().flush(motor.id);
         } else if (input == "8") {
             std::cout << "请输入目标角度：\n";
             std::string s;
@@ -162,8 +168,30 @@ void show_motor_menu(Motor& motor) {
             MotorParser::getInstance().setMinReversePosition(theta, motor.id);
             MotorParser::getInstance().flush(motor.id);
         } else if (input == "9") {
+            std::cout << "请输入目标速度：(°/s)\n";
+            std::string s;
+            std::getline(std::cin, s);
+            double theta = -1;
+            if (!is_float(s, theta)) {
+                std::cout << "输入数据不合法，请重新选择后输入纯数字\n";
+                continue;
+            }
+            MotorParser::getInstance().setMaxForwardSpeed(theta, motor.id);
+            MotorParser::getInstance().flush(motor.id);
+        } else if (input == "10") {
+            std::cout << "请输入目标速度：(°/s)\n";
+            std::string s;
+            std::getline(std::cin, s);
+            double theta = -1;
+            if (!is_float(s, theta)) {
+                std::cout << "输入数据不合法，请重新选择后输入纯数字\n";
+                continue;
+            }
+            MotorParser::getInstance().setMinReverseSpeed(theta, motor.id);
+            MotorParser::getInstance().flush(motor.id);
+        } else if (input == "11") {
             std::cout << "重新获取电机状态...\n";
-            continue;     
+            continue;
         } else {
             std::cout << "无效输入。\n";
         }

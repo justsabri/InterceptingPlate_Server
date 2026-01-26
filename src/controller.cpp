@@ -866,10 +866,10 @@ double Controller::yToTheta(double y) {
     double ratio = (y - config_info_.ext2deg.a) / config_info_.ext2deg.b;
     // 角度结果
     double result_deg = std::asin(ratio) * RAD_TO_DEG - config_info_.ext2deg.x_min;
-    if (result_deg < 0) {
-        result_deg = 0;
-    } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min) {
-        result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min;
+    if (result_deg < 5) {
+        result_deg = 5;
+    } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 5) {
+        result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 5;
     }
     AINFO << "y2t " << y << " - " << result_deg;
     return result_deg;
@@ -979,6 +979,7 @@ void Controller::writeCSVData() {
 
     // 刷新缓冲区，确保数据及时写入
     csv_file_.flush();
+
     file_size += 110;
 
     if (file_size > 10 * 1024 * 1024) {

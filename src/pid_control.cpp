@@ -189,7 +189,9 @@ public:
                                                       float max_extension)
     {
 
-        // 下述公式使用的为南盾1航速最优的公式
+
+
+
         float x = current_speed;
         float y = 0.0f;
 
@@ -205,14 +207,32 @@ public:
         {
             y = 1.205f * x + 29.52f;
         }
-        else if (x <= 50)
-        {
-            y = 0.052f * x * x - 4.93f * x + 118;
-        }
         else
         {
             y = 0;
         }
+
+        // 下述公式使用的为南盾1航速最优的公式
+        // if (x < 5)
+        // {
+        //     y = 0;
+        // }
+        // else if (x < 8.7)
+        // {
+        //     y = 10.81f * x - 54.05f;
+        // }
+        // else if (x < 17)
+        // {
+        //     y = 1.205f * x + 29.52f;
+        // }
+        // else if (x <= 50)
+        // {
+        //     y = 0.052f * x * x - 4.93f * x + 118;
+        // }
+        // else
+        // {
+        //     y = 0;
+        // }
 
         return apply_constraints(y, left_current, right_current, max_extension);
     }
@@ -765,54 +785,82 @@ PID_Output PID_parameter_transfer(const PID_Input &input)
         float heel_current = input.heel_current.value();
 
         // ========== 辅助急停检测（优先级最高） ==========
-        // 思路：维护最近 10 秒的 RPM 记录，判断短时间（≤5s）内是否从高 RPM 跌至低 RPM，且降速足够快
-        // 如果满足条件则切换到辅助急停（current_logic_state = 32）以保证安全。
+        // 说明（可修改的参数请参考下方注释）：
+        // - detection_window_seconds: 需要回溯的时间窗口长度（秒），即 x 秒窗口
+        // - required_descent_per_sec: 每秒下降阈值（RPM/s），即每秒至少下降多少 RPM
+        // - require_monotonic: 是否要求窗口内所有采样点严格单调下降
+        // - history_retention_seconds: 保留 speed_history 的最长时间（用于节省内存），
+        //   一般应 >= detection_window_seconds
+        
+        // 可配置参数（若要改为 x 秒窗口，改 detection_window_seconds 即可）
+        const double detection_window_seconds = 2.0;      // <-- 改为 x（例如 2.0 表示过去2秒）
+        const double required_descent_per_sec = 300.0;    // <-- 每秒下降阈值（RPM/s）
+        const bool require_monotonic = true;              // <-- 是否要求窗口内所有点都下降
+        const double history_retention_seconds = 5.0;    // <-- 保留队列时长（秒），通常无需改动
 
         // time(nullptr) 返回当前时间（time_t），用于构建时间序列
         time_t current_time = time(nullptr);
         // 将当前时间和 RPM 压入队列尾部
         speed_history.push_back(std::make_pair(current_time, current_RPM));
 
-        // 清理早于 10 秒前的记录，保持队列只包含最近 10 秒的数据
+        // 清理早于 history_retention_seconds 秒前的记录，保持队列只包含最近若干秒的数据
         while (!speed_history.empty() &&
-               (current_time - speed_history.front().first) > 10)
+               (current_time - speed_history.front().first) > history_retention_seconds)
         {
-            // pop_front() 从队首移除最早的记录
             speed_history.pop_front();
         }
 
         // 默认未检测到急停
         bool emergency_brake_detected = false;
 
-        // 只有当队列中至少有2条记录时，才有意义计算时间差和速度变化
+        // 查找窗口起点（第一个时间戳 >= current_time - detection_window_seconds）
         if (speed_history.size() >= 2)
         {
-            // 使用引用避免拷贝；front() 返回队首元素，back() 返回队尾元素
-            auto &oldest = speed_history.front();
-            auto &newest = speed_history.back();
-
-            // difftime 返回两个 time_t 之间的差（以秒为单位，返回 double）
-            float time_diff = difftime(newest.first, oldest.first);
-
-            // 限制检测窗口：只关注跨度不超过 5 秒且大于 0 的情况
-            if (time_diff <= 5.0 && time_diff > 0)
+            // 找到窗口内第一个元素的索引
+            size_t start_idx = 0;
+            for (size_t i = 0; i < speed_history.size(); ++i)
             {
-                // speed_diff 表示在该时间窗口内 RPM 的下降量
-                float speed_diff = oldest.second - newest.second;
-                // avg_descent_rate 为平均每秒下降多少 RPM（可能为正值表示下降）
-                float avg_descent_rate = speed_diff / time_diff;
-
-                // 判定条件（示例阈值，可根据实际船舶数据调整）：
-                // - 起始 RPM 较高（>=1800）且最新 RPM 已非常低（<=800），表示明显降速；
-                // - 平均降速速率 >= 100 rpm/s（阈值可灵活调整）
-                if (oldest.second >= 1800.0f &&
-                    newest.second <= 800.0f &&
-                    avg_descent_rate >= 100.0f)
+                if (difftime(speed_history[i].first, current_time) >= -detection_window_seconds)
                 {
-                    // 标记检测到急停，切换内部逻辑为辅助急停
+                    start_idx = i;
+                    break;
+                }
+            }
+
+            // newest 为队尾
+            auto &newest = speed_history.back();
+            auto &first_in_window = speed_history[start_idx];
+
+            double time_diff = difftime(newest.first, first_in_window.first);
+
+            // 需要保证窗口跨度足够接近 detection_window_seconds（至少 > 0）
+            if (time_diff > 0.0)
+            {
+                // 检查窗口内是否严格单调下降（可选）
+                bool monotonic_decrease = true;
+                if (require_monotonic)
+                {
+                    for (size_t i = start_idx; i + 1 < speed_history.size(); ++i)
+                    {
+                        if (speed_history[i].second <= speed_history[i + 1].second)
+                        {
+                            monotonic_decrease = false;
+                            break;
+                        }
+                    }
+                }
+
+                // 计算平均每秒下降速率
+                double speed_drop = first_in_window.second - newest.second; // 正值表示下降
+                double avg_descent_rate = speed_drop / time_diff;
+
+                // 判定条件：窗口内单调下降（若需），且平均下降速率满足阈值
+                if ((!require_monotonic || monotonic_decrease) &&
+                    avg_descent_rate >= required_descent_per_sec)
+                {
                     emergency_brake_detected = true;
                     current_logic_state = 32; // 32 表示辅助急停
-                    AINFO << "[自动模式] 检测到急停条件，使用辅助急停模式";
+                    AINFO << "[自动模式] 检测到急停条件（" << detection_window_seconds << "s 窗口, avg_descent=" << avg_descent_rate << " RPM/s），使用辅助急停模式";
                 }
             }
         }
