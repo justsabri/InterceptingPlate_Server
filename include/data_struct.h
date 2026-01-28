@@ -70,6 +70,8 @@ struct ImuData {
     float right_rpm; //右侧主机转速
     int left_gear; //左侧主机挡位
     int right_gear; //右侧主机挡位
+    float left_rudder;  // 左桨舵角 (-30°~30°)
+    float right_rudder; // 右桨舵角 (-30°~30°)
 };
 
 // 电机错误状态结构体
@@ -149,6 +151,8 @@ struct ImuStateData
   float right_rpm; //右侧主机转速
   int left_gear; //左侧主机挡位
   int right_gear; //右侧主机挡位
+  float left_rudder;  // 左桨舵角 (-30°~30°)
+  float right_rudder; // 右桨舵角 (-30°~30°)
 };
 //下位机状态
 struct PCStateData {

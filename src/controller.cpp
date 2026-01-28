@@ -904,7 +904,7 @@ void Controller::initCSVFile() {
     }
 
     // 写入表头
-    csv_file_ << "时间戳(ms),航速(kn),纵倾角(°),横倾角(°),经度(°),纬度(°),左侧截流板伸缩量(mm),右侧截流板伸缩量(mm),左主机转速(rpm),右主机转速(rpm),左主机挡位,右主机挡位" << std::endl;
+    csv_file_ << "时间戳(ms),航速(kn),纵倾角(°),横倾角(°),经度(°),纬度(°),左侧截流板伸缩量(mm),右侧截流板伸缩量(mm),左主机转速(rpm),右主机转速(rpm),左主机挡位,右主机挡位,左桨舵角(°),右桨舵角(°),艏向角(°)" << std::endl;
     AINFO << "Initialized CSV file: " << data_dir / csv_filename_;
 }
 
@@ -935,6 +935,9 @@ void Controller::writeCSVData() {
     float right_rpm = 0.0; //右侧主机转速
     int left_gear = 0.0; //左侧主机挡位
     int right_gear = 0.0; //右侧主机挡位
+    float left_rudder = 0.0; //左桨舵角
+    float right_rudder = 0.0; //右桨舵角
+    float heading = 0.0; //艏向角
 
     // 从monitor_pack_获取数据
     {
@@ -961,6 +964,9 @@ void Controller::writeCSVData() {
         right_rpm = monitor_pack_.imu_state.right_rpm;
         left_gear = monitor_pack_.imu_state.left_gear;
         right_gear = monitor_pack_.imu_state.right_gear;
+        left_rudder = monitor_pack_.imu_state.left_rudder;
+        right_rudder = monitor_pack_.imu_state.right_rudder;
+        heading = monitor_pack_.imu_state.heading;
     }
 
     // 写入数据
@@ -975,7 +981,10 @@ void Controller::writeCSVData() {
               << left_rpm << ","
               << right_rpm << ","
               << left_gear << ","
-              << right_gear << std::endl;
+              << right_gear << ","
+              << left_rudder << ","
+              << right_rudder << ","
+              << heading << std::endl;
 
     // 刷新缓冲区，确保数据及时写入
     csv_file_.flush();

@@ -501,6 +501,11 @@ void ImuMonitorThread::MonitoringLoop()
             // 船舶当前舵角
             imu_state_.current_rudder = simu_current_rudder;
             //---------------------1、船舶当前舵角-------------------------------------
+            
+            // 新增字段赋值
+            imu_state_.left_rudder = 0.0;
+            imu_state_.right_rudder = 0.0;
+            imu_state_.heading = 0.0;
             //=================================================================================
             // 经纬度范围检测
             // if ((data.longitude < 73.0 || data.longitude > 136.0) ||
@@ -617,6 +622,7 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.roll = data.roll;
             imu_state_.pitch = data.pitch;
             imu_state_.yaw = data.yaw;
+            imu_state_.heading = data.heading;
             //=================================================================================
             // 舵角范围检测
             if (data.rudder < -30 || data.rudder > 30.0)
@@ -679,6 +685,8 @@ void ImuMonitorThread::MonitoringLoop()
             imu_state_.left_rpm = data.left_rpm;
             imu_state_.right_gear = data.right_gear;
             imu_state_.right_rpm = data.right_rpm;
+            imu_state_.left_rudder = data.left_rudder;
+            imu_state_.right_rudder = data.right_rudder;
 
             // 定位状态检测
             // AINFO << "data.GNSS_staus " << data.GNSS_staus;

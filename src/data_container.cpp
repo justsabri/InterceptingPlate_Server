@@ -35,19 +35,19 @@ InitDeviceStatus DataContainer::initDevice(void){
         // MotorParser::getInstance().flush(motor_config_.motor[i]);
     }
     //  /dev/ttyS8  参照imu_rs232.h中定义修改
-//     std::string device = "/dev/ttyS8";
-// #ifdef VIRTUAL_TEST
-//     device = "/tmp/ttyV1";
-// #endif
-//     init_device_status_.imu = imu.init(device,115200);
-//     AWARN << "初始化惯导"<<init_device_status_.imu;
-//     return init_device_status_;
+    std::string device = "/dev/ttyS8";
+#ifdef VIRTUAL_TEST
+    device = "/tmp/ttyV1";
+#endif
+    init_device_status_.imu = imu.init(device,115200);
+    AWARN << "初始化惯导"<<init_device_status_.imu;
+    return init_device_status_;
     //初始化udp server
     // 启动UDP服务器（单函数调用完成所有初始化和启动）
-    if (!udp_server_.start()) {
-        AERROR << "服务器启动失败，程序退出" << std::endl;
-        init_device_status_.imu = 1;
-    }
+    // if (!udp_server_.start()) {
+    //     AERROR << "服务器启动失败，程序退出" << std::endl;
+    //     init_device_status_.imu = 1;
+    // }
 }
 
 void DataContainer::motorData(MotorDataCallback cb) {
@@ -76,23 +76,23 @@ int DataContainer::refreshMotorData(void) {
 }
 
 int DataContainer::refreshImuData(void){   
-    // if(imu.readData() == 0){
-    //     imu_data_ = imu.getdata();  //单次获取并解析采集数据
-    //     std::lock_guard<std::mutex> lock(imu_mutex_);
-    //     if (callback_imu) {
-    //         callback_imu(imu_data_);
-    //     }
-    //     return 0;
-    // }
-    // return 1;
-
-    imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
-    AINFO <<"刷新惯导数据："<<imu_data_.timestamp;
-    std::lock_guard<std::mutex> lock(imu_mutex_);
-    if (callback_imu) {
+    if(imu.readData() == 0){
+        imu_data_ = imu.getdata();  //单次获取并解析采集数据
+        std::lock_guard<std::mutex> lock(imu_mutex_);
+        if (callback_imu) {
             callback_imu(imu_data_);
+        }
+        return 0;
     }
-    return 0;
+    return 1;
+
+    // imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
+    // AINFO <<"刷新惯导数据："<<imu_data_.timestamp;
+    // std::lock_guard<std::mutex> lock(imu_mutex_);
+    // if (callback_imu) {
+    //         callback_imu(imu_data_);
+    // }
+    // return 0;
 }
 
 void DataContainer::refreshPcData(void){
