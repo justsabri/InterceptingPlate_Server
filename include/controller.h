@@ -28,6 +28,7 @@ public:
     void handle_message(const json &j);
     void handle_message(const Server_Ctrl& ctl);
     void handle_message(const ModbusDataEvent &event);
+    void handle_message(const ModbusData &data);
     double thetaToY(double theta_deg);
     double yToTheta(double y);
     void ctrl_motor(std::optional<float> left, std::optional<float> right);

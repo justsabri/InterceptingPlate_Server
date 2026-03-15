@@ -1,5 +1,6 @@
 #include "WebSocketServer.h"
 #include "ModbusTcpServer.h"
+#include "ModbusRTUServer.h"
 #include "TcpServer.h"
 #include <log.h>
 #include <cstdlib>
@@ -66,6 +67,42 @@ int main() {
         AERROR << "====================3";
         // 启动 modbus 服务
         ms_server.start(502);
+        AERROR << "====================4";
+        
+    } catch (const std::exception & e) {
+        // 捕获并记录未被处理的异常
+        AERROR << "Fatal error: " << e.what();
+        // 停止日志系统
+        StopLog();
+        return EXIT_FAILURE;
+    }
+
+    // 正常退出前停止日志系统
+    StopLog();
+#elif MODBUSRTU_COMMUNICATION
+    // 初始化日志系统，设置应用名称
+    namespace fs = std::filesystem;
+    fs::path log_path = fs::current_path() / "log";
+    InitLog("ModbusTcpServer", log_path.string().c_str(), 10);
+
+    AINFO<<"start system";
+    try {
+        // 创建事件总线
+        EventBus event_bus;
+        // 创建WebSocket服务器实例
+	    ModbusRTUServer server;
+        AERROR << "====================1";
+	    // 创建controller实例
+        Controller controller(event_bus);
+	    AERROR << "====================2";
+        // 启动 Controller，触发消息发送
+        controller.start();
+        AERROR << "====================3";
+        // 启动 modbus 服务
+        if (!server.start("/dev/ttyUSB0", 115200, 'N', 8, 1)) {
+            fprintf(stderr, "无法启动Modbus RTU服务器\n");
+            return -1;
+        }
         AERROR << "====================4";
         
     } catch (const std::exception & e) {

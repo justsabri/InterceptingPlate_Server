@@ -4,7 +4,7 @@
 #include <cmath>
 #include <map>
 #include <cstdint>
-
+#include "event_bus.h"
 // // 传感器数据结构体
 // struct ImuData
 // {
@@ -217,4 +217,94 @@ struct Server_Ctrl {
     float ext_right;
     uint16_t shutdown;
     uint64_t timestamp;
+};
+
+// 定义数据类型枚举
+enum DataType {
+    TYPE_INT16,
+    TYPE_FLOAT,
+    TYPE_DOUBLE
+};
+
+// 定义寄存器映射结构体
+struct RegisterMap {
+    int address;           // 寄存器地址
+    int length;            // 寄存器长度（字节数）
+    DataType type;         // 数据类型
+    void* dataPtr;         // 数据指针
+    bool writable;         // 是否可写
+    float minValue;        // 最小值
+    float maxValue;        // 最大值
+};
+
+// 数据存储结构
+struct ModbusData {
+    // 数据方向
+    int16_t dataFlow;
+    // 控制参数（1001-1030）
+    int16_t controlMode;           // 1001: 控制模式
+    float manualLeftExtend;         // 1002-1003: 手动参数左侧伸出百分比
+    float manualRightExtend;        // 1004-1005: 手动参数右侧伸出百分比
+    int16_t autoModeParam;          // 1006: 自动模式参数
+    float rollAngle;                // 1007-1008: 横倾角
+    float pitchAngle;               // 1009-1010: 纵倾角
+    float rudderAngle;              // 1011-1012: 舵角
+    float speed;                    // 1013-1014: 航速
+    float timestamp;                // 1015-1016: 时间戳
+    double longitude;               // 1017-1020: 经度
+    double latitude;                // 1021-1024: 纬度
+    float leftEngineSpeed;          // 1025-1026: 左机转速
+    float rightEngineSpeed;         // 1027-1028: 右机转速
+    int16_t leftEngineGear;         // 1029: 左机挡位
+    int16_t rightEngineGear;        // 1030: 右机挡位
+
+    // 状态数据（2001-2023）
+    float currentSpeed;             // 2001-2002: 当前航速
+    float leftExtendThreshold;      // 2003-2004: 左侧截流板伸出阈值百分比
+    float rightExtendThreshold;     // 2005-2006: 右侧截流板伸出阈值百分比
+    float leftCurrentExtend;        // 2007-2008: 左侧截流板当前伸出百分比
+    float rightCurrentExtend;       // 2009-2010: 右侧截流板当前伸出百分比
+    int16_t motorCount;             // 2011: 电机数量
+    int16_t motor1Status;           // 2012: 电机1状态码
+    int16_t motor2Status;           // 2013: 电机2状态码
+    int16_t motor3Status;           // 2014: 电机3状态码
+    int16_t motor4Status;           // 2015: 电机4状态码
+    int16_t imuStatus;              // 2016: 惯导数据状态码
+    int16_t slaveStatus;            // 2017: 下位机状态码
+    float currentPitch;             // 2020-2021: 船舶当前纵倾角
+    float currentRoll;              // 2022-2023: 船舶当前横倾角
+
+    ModbusData() {
+        // 初始化默认值
+        controlMode = 1; // 默认手动模式
+        manualLeftExtend = 0.0f;
+        manualRightExtend = 0.0f;
+        autoModeParam = 1; // 默认自适应模式
+        rollAngle = 0.0f;
+        pitchAngle = 0.0f;
+        rudderAngle = 0.0f;
+        speed = 0.0f;
+        timestamp = 0.0f;
+        longitude = 0.0;
+        latitude = 0.0;
+        leftEngineSpeed = 0.0f;
+        rightEngineSpeed = 0.0f;
+        leftEngineGear = 0; // 默认空档
+        rightEngineGear = 0; // 默认空档
+
+        currentSpeed = 0.0f;
+        leftExtendThreshold = 100.0f;
+        rightExtendThreshold = 100.0f;
+        leftCurrentExtend = 0.0f;
+        rightCurrentExtend = 0.0f;
+        motorCount = 2; // 默认2个电机
+        motor1Status = 101; // 默认正常
+        motor2Status = 101; // 默认正常
+        motor3Status = 101; // 默认正常
+        motor4Status = 101; // 默认正常
+        imuStatus = 201; // 默认正常
+        slaveStatus = 301; // 默认正常
+        currentPitch = 0.0f;
+        currentRoll = 0.0f;
+    }
 };

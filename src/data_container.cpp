@@ -44,10 +44,13 @@ InitDeviceStatus DataContainer::initDevice(void){
 //     return init_device_status_;
     //初始化udp server
     // 启动UDP服务器（单函数调用完成所有初始化和启动）
-    if (!udp_server_.start()) {
-        AERROR << "服务器启动失败，程序退出" << std::endl;
-        init_device_status_.imu = 1;
-    }
+    // if (!udp_server_.start()) {
+    //     AERROR << "服务器启动失败，程序退出" << std::endl;
+    //     init_device_status_.imu = 1;
+    // }
+#ifdef MODBUSRTU_COMMUNICATION
+    imu.imu_start();
+#endif
 }
 
 void DataContainer::motorData(MotorDataCallback cb) {
@@ -86,13 +89,21 @@ int DataContainer::refreshImuData(void){
     // }
     // return 1;
 
-    imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
+    // imu_data_ = udp_server_.getData();  //单次获取并解析采集数据
+    // AINFO <<"刷新惯导数据："<<imu_data_.timestamp;
+    // std::lock_guard<std::mutex> lock(imu_mutex_);
+    // if (callback_imu) {
+    //         callback_imu(imu_data_);
+    // }
+#ifdef MODBUSRTU_COMMUNICATION
+    imu_data_ = imu.getData();
     AINFO <<"刷新惯导数据："<<imu_data_.timestamp;
     std::lock_guard<std::mutex> lock(imu_mutex_);
     if (callback_imu) {
             callback_imu(imu_data_);
     }
     return 0;
+#endif
 }
 
 void DataContainer::refreshPcData(void){

@@ -117,7 +117,7 @@ target_link_libraries(tcp_server PRIVATE
 # 增加宏定义
 target_compile_definitions(tcp_server PUBLIC TCP_COMMUNICATION)
 
-# 设置modbus server源文件
+# 设置modbus tcp server源文件
 set(MODBUSTCP_SOURCE_FILES
     src/main.cpp
     src/ModbusTcpServer.cpp
@@ -134,7 +134,7 @@ set(MODBUSTCP_SOURCE_FILES
     src/udp_data_server.cpp
 )
 
-# modbus server可执行文件目标
+# modbus tcp server可执行文件目标
 add_executable(modbustcp_server ${MODBUSTCP_SOURCE_FILES})
 
 # 现代包含目录声明（PRIVATE作用域）
@@ -158,6 +158,48 @@ target_link_libraries(modbustcp_server PRIVATE
 
 # 增加宏定义
 target_compile_definitions(modbustcp_server PUBLIC MODBUSTCP_COMMUNICATION)
+
+# 设置modbus rtu server源文件
+set(MODBUSRTU_SOURCE_FILES
+    src/main.cpp
+    src/ModbusRTUServer.cpp
+    src/controller.cpp
+    src/alg_processor.cpp
+    src/pid_control.cpp
+    src/data_container.cpp
+    src/data_center.cpp
+    src/imu_rs232.cpp
+    src/monitor_system.cpp
+    src/motor_controller.cpp
+    src/motor.cpp
+    src/pc.cpp
+    src/imu_modbus_rtu.cpp
+)
+
+# modbus rtu server可执行文件目标
+add_executable(modbusrtu_server ${MODBUSRTU_SOURCE_FILES})
+
+# 现代包含目录声明（PRIVATE作用域）
+target_include_directories(modbusrtu_server PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# 修正库链接
+target_link_libraries(modbusrtu_server PRIVATE
+    # Boost组件（需要指定具体库）
+    Boost::system  
+    # 线程库
+    Threads::Threads
+    # modbus库
+    modbus
+    # 4. 添加Boost头文件库（可选但推荐）
+    Boost::headers
+
+    glog::glog
+)
+
+# 增加宏定义
+target_compile_definitions(modbusrtu_server PUBLIC MODBUSRTU_COMMUNICATION)
 
 # 电机手动修改参数
 if (ENABLE_MOTOR_MODIFY)

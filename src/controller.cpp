@@ -7,6 +7,10 @@
 #include <chrono>
 #include <iomanip>
 
+#ifdef MODBUSRTU_COMMUNICATION
+#include "modbus_rtu_bus.h"
+extern EventBus modbus_bus_;
+#endif
 
 Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
                                         auto_mode_(0) {
@@ -18,6 +22,10 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
 #elif MODBUSTCP_COMMUNICATION
     event_bus_.subscribe<ModbusDataEvent>("from_modbus", [this](const ModbusDataEvent event) {
         handle_message(event);
+    });
+#elif MODBUSRTU_COMMUNICATION
+    modbus_bus_.subscribe<ModbusData>("from_modbus_rtu", [this](const ModbusData data) {
+        handle_message(data);
     });
 #elif TCP_COMMUNICATION
     event_bus_.subscribe<Server_Ctrl>("from_tcp", [this](const Server_Ctrl ctl) {
@@ -435,6 +443,19 @@ void Controller::handle_message(const ModbusDataEvent &event) {
             break;
         }
     }
+}
+
+void Controller::handle_message(const ModbusData &data) {
+#ifdef MODBUSRTU_COMMUNICATION
+    if (data.dataFlow == 0x03) {  // 填充数据到data中
+        ModbusData tmp;
+        tmp.motor1Status = 101;
+
+        modbus_bus_.publish("to_modbus_rtu", tmp);
+    } else if (data.dataFlow == 0x10) { // 从data中获取指令
+
+    }
+#endif
 }
 
 void Controller::convertStructToJson(Data_Type type, void* data, json &j) {

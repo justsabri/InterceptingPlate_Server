@@ -10,8 +10,11 @@
 #include <thread>
 
 #include "motor.h"
-#include "udp_data_server.h"
+// #include "udp_data_server.h"
 // #include "imu_rs232.h"
+#ifdef MODBUSRTU_COMMUNICATION
+#include "imu_modbus_rtu.h"
+#endif
 #include "data_struct.h"
 #include "pc.h"
 
@@ -26,7 +29,10 @@ public:
     InitDeviceStatus initDevice(void);
 private:
     // IMURS232   imu;
-    UdpDataServer udp_server_;
+    // UdpDataServer udp_server_;
+#ifdef MODBUSRTU_COMMUNICATION
+    IMUModbusRTU imu;
+#endif
     LinuxPc    pc;
 
         // 线程控制相关变量
