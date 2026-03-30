@@ -237,7 +237,8 @@ struct RegisterMap {
     float maxValue;        // 最大值
 };
 
-// 数据存储结构
+
+    // 数据存储结构
 struct ModbusData {
     // 数据方向
     int16_t dataFlow;

@@ -83,12 +83,13 @@ int main() {
     // 初始化日志系统，设置应用名称
     namespace fs = std::filesystem;
     fs::path log_path = fs::current_path() / "log";
-    InitLog("ModbusTcpServer", log_path.string().c_str(), 10);
+    InitLog("ModbusRTUServer", log_path.string().c_str(), 10);
 
     AINFO<<"start system";
     try {
         // 创建事件总线
         EventBus event_bus;
+        AINFO<< "main bus========" << &event_bus;
         // 创建WebSocket服务器实例
 	    ModbusRTUServer server;
         AERROR << "====================1";
@@ -99,8 +100,8 @@ int main() {
         controller.start();
         AERROR << "====================3";
         // 启动 modbus 服务
-        if (!server.start("/dev/ttyUSB0", 115200, 'N', 8, 1)) {
-            fprintf(stderr, "无法启动Modbus RTU服务器\n");
+        if (!server.start("/dev/ttyCH9344USB0", 115200, 'N', 8, 1)) {
+            AERROR << "无法启动Modbus RTU服务器";
             return -1;
         }
         AERROR << "====================4";

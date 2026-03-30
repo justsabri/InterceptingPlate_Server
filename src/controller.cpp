@@ -24,7 +24,8 @@ Controller::Controller(EventBus& bus) : event_bus_(bus), thread_pool_(1),
         handle_message(event);
     });
 #elif MODBUSRTU_COMMUNICATION
-    modbus_bus_.subscribe<ModbusData>("from_modbus_rtu", [this](const ModbusData data) {
+    modbus_bus_.subscribe<ModbusData>("from_modbus_rtu", [this](const ModbusData& data) {
+        AINFO<<"Controller收到Modbus RTU数据更新事件";
         handle_message(data);
     });
 #elif TCP_COMMUNICATION
@@ -449,11 +450,80 @@ void Controller::handle_message(const ModbusData &data) {
 #ifdef MODBUSRTU_COMMUNICATION
     if (data.dataFlow == 0x03) {  // 填充数据到data中
         ModbusData tmp;
-        tmp.motor1Status = 101;
-
+        // 填充状态数据
+        tmp.currentSpeed = monitor_pack_.imu_state.speed;
+        tmp.leftExtendThreshold = safe_ext_.getMaxExtensionRatio(monitor_pack_.imu_state.speed);
+        tmp.rightExtendThreshold = safe_ext_.getMaxExtensionRatio(monitor_pack_.imu_state.speed);
+        
+        if (monitor_pack_.motor_state.count(config_info_.left_motor[0]) > 0) {
+            tmp.leftCurrentExtend = thetaToY(monitor_pack_.motor_state[config_info_.left_motor[0]].plate) / config_info_.max_ext;
+        }
+        if (monitor_pack_.motor_state.count(config_info_.right_motor[0]) > 0) {
+            tmp.rightCurrentExtend = thetaToY(monitor_pack_.motor_state[config_info_.right_motor[0]].plate) / config_info_.max_ext;
+        }
+        
+        tmp.motorCount = config_info_.motor_num;
+        for (int i = 0; i < config_info_.motor_num; i++) {
+            int motor_id = config_info_.motor_id[i];
+            if (monitor_pack_.motor_state.count(motor_id) > 0) {
+                switch (i) {
+                    case 0:
+                        tmp.motor1Status = monitor_pack_.motor_state[motor_id].alarm_code;
+                        break;
+                    case 1:
+                        tmp.motor2Status = monitor_pack_.motor_state[motor_id].alarm_code;
+                        break;
+                    case 2:
+                        tmp.motor3Status = monitor_pack_.motor_state[motor_id].alarm_code;
+                        break;
+                    case 3:
+                        tmp.motor4Status = monitor_pack_.motor_state[motor_id].alarm_code;
+                        break;
+                }
+            }
+        }
+        
+        tmp.imuStatus = 201; // 默认正常
+        tmp.slaveStatus = monitor_pack_.pc_state.alarm_code;
+        tmp.currentPitch = monitor_pack_.imu_state.pitch;
+        tmp.currentRoll = monitor_pack_.imu_state.roll;
+        AINFO<<"更新数据到rtu中";
         modbus_bus_.publish("to_modbus_rtu", tmp);
     } else if (data.dataFlow == 0x10) { // 从data中获取指令
-
+        // 检查是否与上一次指令相同，相同则跳过处理
+        if (data.controlMode == last_modbus_data_.controlMode &&
+            data.autoModeParam == last_modbus_data_.autoModeParam &&
+            std::fabs(data.manualLeftExtend - last_modbus_data_.manualLeftExtend) < 0.001 &&
+            std::fabs(data.manualRightExtend - last_modbus_data_.manualRightExtend) < 0.001) {
+            AINFO << "收到相同的指令，跳过处理";
+            return; // 指令相同，跳过处理
+        }
+        
+        // 处理写入请求
+        if (data.controlMode == 2) { // 自动模式
+            AINFO << "自动模式 " << data.autoModeParam;
+            auto_mode_ = data.autoModeParam;
+            if (auto_mode_ != 0) {
+                // 向数据中心注册算法topic数据和data_cb
+                DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
+                DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
+            }
+        } else if (data.controlMode == 1) { // 手动模式
+            AINFO << "手动模式 " << data.manualLeftExtend << " " << data.manualRightExtend;
+            // 清除自动模式的资源
+            DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+            DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+            alg_processor_->clear();
+            auto_mode_ = 0;
+            
+            // 处理手动控制参数
+            double theta1 = yToTheta(data.manualLeftExtend * config_info_.max_ext);
+            double theta2 = yToTheta(data.manualRightExtend * config_info_.max_ext);
+            ctrl_motor(theta1, theta2);
+        }
+        
+        // 保存当前指令作为上一次指令
+        last_modbus_data_ = data;
     }
 #endif
 }

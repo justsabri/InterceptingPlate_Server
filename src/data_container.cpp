@@ -49,6 +49,7 @@ InitDeviceStatus DataContainer::initDevice(void){
     //     init_device_status_.imu = 1;
     // }
 #ifdef MODBUSRTU_COMMUNICATION
+    AINFO<< "初始化IMU Modbus RTU通信";
     imu.imu_start();
 #endif
 }

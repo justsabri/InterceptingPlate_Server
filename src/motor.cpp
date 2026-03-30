@@ -300,7 +300,7 @@ std::string MotorParser::getMotorMode(int can_id)
 double MotorParser::getMotorCurrent(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x04, {}, PRIORITY_NORMAL);
+    send(can_id, 0x04, {}, PRIORITY_NORMAL);
     auto response = receive(0x04);
     return static_cast<double>(parseInt32(response));
 }
@@ -309,7 +309,7 @@ double MotorParser::getMotorCurrent(int can_id)
 double MotorParser::getMotorVoltage(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x14, {}, PRIORITY_NORMAL);
+    send(can_id, 0x14, {}, PRIORITY_NORMAL);
     auto response = receive(0x14);
     return static_cast<double>(parseInt32(response));
 }
@@ -325,7 +325,7 @@ double MotorParser::calculateMotorPower(double voltage, double current)
 double MotorParser::getMotorSpeed(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x06, {}, PRIORITY_NORMAL);
+    send(can_id, 0x06, {}, PRIORITY_NORMAL);
     auto response = receive(0x06);
     return (parseInt32(response) / 100.0 / gearRatio) * 360.0;
 }
@@ -386,7 +386,7 @@ double MotorParser::getMotorPosition(int can_id)
 double MotorParser::getMaxForwardAcceleration(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x16, {}, PRIORITY_NORMAL);
+    send(can_id, 0x16, {}, PRIORITY_NORMAL);
     auto response = receive(0x16);
     return static_cast<double>(parseInt32(response));
 }
@@ -395,7 +395,7 @@ double MotorParser::getMaxForwardAcceleration(int can_id)
 double MotorParser::getMinReverseAcceleration(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x17, {}, PRIORITY_NORMAL);
+    send(can_id, 0x17, {}, PRIORITY_NORMAL);
     auto response = receive(0x17);
     return static_cast<double>(parseInt32(response));
 }
@@ -404,7 +404,7 @@ double MotorParser::getMinReverseAcceleration(int can_id)
 double MotorParser::getMaxForwardSpeed(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x18, {}, PRIORITY_NORMAL);
+    send(can_id, 0x18, {}, PRIORITY_NORMAL);
     auto response = receive(0x18);
     int32_t speed = parseInt32(response);
     return (speed / 100.0 / gearRatio) * 360.0;
@@ -414,7 +414,7 @@ double MotorParser::getMaxForwardSpeed(int can_id)
 double MotorParser::getMinReverseSpeed(int can_id)
 {
     // std::lock_guard<std::mutex> lock(mtx_);
-    sendMotorCommand(can_id, 0x19, {}, PRIORITY_NORMAL);
+    send(can_id, 0x19, {}, PRIORITY_NORMAL);
     auto response = receive(0x19);
     int32_t speed = parseInt32(response);
     return (speed / 100.0 / gearRatio) * 360.0;
@@ -477,7 +477,7 @@ void MotorParser::setPositionModeAndTarget(double targetAngle, int can_id)
         static_cast<uint8_t>((pos >> 16) & 0xFF),
         static_cast<uint8_t>((pos >> 24) & 0xFF)};
     AINFO << targetAngle << " " << can_id;
-    sendMotorCommand(can_id, 0x1E, data, PRIORITY_HIGH);
+    send(can_id, 0x1E, data, PRIORITY_HIGH);
 }
 
 // 设置位置模式、目标位置
@@ -509,7 +509,7 @@ void MotorParser::setMaxForwardAcceleration(int32_t acceleration, int can_id)
         static_cast<uint8_t>((acceleration >> 8) & 0xFF),
         static_cast<uint8_t>((acceleration >> 16) & 0xFF),
         static_cast<uint8_t>((acceleration >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x22, data, PRIORITY_HIGH);
+    send(can_id, 0x22, data, PRIORITY_HIGH);
 }
 
 // 设置电机最小负向加速度
@@ -521,7 +521,7 @@ void MotorParser::setMinReverseAcceleration(int32_t acceleration, int can_id)
         static_cast<uint8_t>((acceleration >> 8) & 0xFF),
         static_cast<uint8_t>((acceleration >> 16) & 0xFF),
         static_cast<uint8_t>((acceleration >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x23, data, PRIORITY_HIGH);
+    send(can_id, 0x23, data, PRIORITY_HIGH);
 }
 
 // 设置最大正向允许速度
@@ -534,7 +534,7 @@ void MotorParser::setMaxForwardSpeed(double speedDeg, int can_id)
         static_cast<uint8_t>((value >> 8) & 0xFF),
         static_cast<uint8_t>((value >> 16) & 0xFF),
         static_cast<uint8_t>((value >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x24, data, PRIORITY_HIGH);
+    send(can_id, 0x24, data, PRIORITY_HIGH);
 }
 
 // 设置最小负向允许速度
@@ -547,7 +547,7 @@ void MotorParser::setMinReverseSpeed(double speedDeg, int can_id)
         static_cast<uint8_t>((value >> 8) & 0xFF),
         static_cast<uint8_t>((value >> 16) & 0xFF),
         static_cast<uint8_t>((value >> 24) & 0xFF)};
-    sendMotorCommand(can_id, 0x25, data, PRIORITY_HIGH);
+    send(can_id, 0x25, data, PRIORITY_HIGH);
 }
 
 // 设置最大正向位置
