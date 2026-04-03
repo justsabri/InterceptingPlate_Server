@@ -100,7 +100,7 @@ int main() {
         controller.start();
         AERROR << "====================3";
         // 启动 modbus 服务
-        if (!server.start("/dev/ttyCH9344USB0", 115200, 'N', 8, 1)) {
+        if (!server.start("/dev/ttyCH9344USB0", 57600, 'N', 8, 1)) {
             AERROR << "无法启动Modbus RTU服务器";
             return -1;
         }
