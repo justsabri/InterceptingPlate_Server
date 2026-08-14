@@ -267,34 +267,47 @@ void Controller::handle_message(const json& j) {
 }
 
 void Controller::handle_message(const Server_Ctrl& ctl) {
-    // 手动模式
+    auto is_valid_auto_mode = [](uint16_t mode) {
+        return mode == 1 || mode == 31 || mode == 32 || mode == 33 || mode == 35;
+    };
+
     if (ctl.ctrl_mode == 2) {
-        // 清除自动模式的资源
         DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
         DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
         alg_processor_->clear();
         auto_mode_ = 0;
 
         AINFO << "==========MANUAL mode " << ": plate_1=" << ctl.ext_left << ", plate_2=" << ctl.ext_right;
-        double theta_1 = yToTheta(ctl.ext_left*config_info_.max_ext);
-        double theta_2 = yToTheta(ctl.ext_right*config_info_.max_ext);
-        AINFO <<"=========角度："<<theta_1<<"========"<<theta_2;
-        // 控制 moter_ctrl执行对应命令
+        double theta_1 = yToTheta(ctl.ext_left * config_info_.max_ext);
+        double theta_2 = yToTheta(ctl.ext_right * config_info_.max_ext);
+        AINFO << "=========角度：" << theta_1 << "========" << theta_2;
         ctrl_motor(theta_1, theta_2);
-    } else if (ctl.ctrl_mode == 1) {
-        AINFO << "进入自动模式=================================";
+        return;
+    }
+
+    if (ctl.ctrl_mode == 1) {
+        if (!is_valid_auto_mode(ctl.auto_mode_param)) {
+            AERROR << "Invalid 15m auto mode param: " << ctl.auto_mode_param;
+            return;
+        }
+
+        AINFO << "进入自动模式================================= mode=" << ctl.auto_mode_param;
+        if (auto_mode_ != ctl.auto_mode_param) {
+            DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+            DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+            alg_processor_->clear();
+        }
+
         auto_mode_ = ctl.auto_mode_param;
-        // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
         DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
         DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
         AINFO << "注册回调成功=================================";
-    } else if (ctl.ctrl_mode == 0) {
-        AINFO << "进入待机模式=================================";
-        // 清除自动模式的资源
-        auto_mode_ = 0;
-        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
-        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+        return;
     }
+
+    AERROR << "Invalid 15m control mode: " << ctl.ctrl_mode;
 }
 
 static void auto_ctrl(void* ptr) {
