@@ -1,5 +1,7 @@
 #include "TcpServer.h"
 
+#include "data_center.h"
+
 #include <cerrno>
 #include <cstring>
 #include <iostream>
@@ -35,6 +37,23 @@ protocol_15m::InterceptorStatus toInterceptorStatus(const Server_Info& info) {
     status.current_pitch = info.pitch;
     status.current_roll = info.roll;
     return status;
+}
+
+ImuData toImuData(const protocol_15m::ShipStatus& status) {
+    ImuData data{};
+    data.roll = status.roll;
+    data.pitch = status.pitch;
+    data.rudder = status.rudder;
+    data.speed = status.speed;
+    data.longitude = status.longitude;
+    data.latitude = status.latitude;
+    data.left_rpm = status.left_engine_speed;
+    data.right_rpm = status.right_engine_speed;
+    data.rpm = (status.left_engine_speed + status.right_engine_speed) / 2.0f;
+    data.left_gear = status.left_engine_gear;
+    data.right_gear = status.right_engine_gear;
+    data.timestamp = static_cast<uint32_t>(status.timestamp);
+    return data;
 }
 
 }  // namespace
@@ -137,10 +156,14 @@ void TcpServer::handleClient(int client_fd) {
                 AERROR << "15m ship status invalid: " << result.error;
                 continue;
             }
-            AINFO << "15m ship status decoded: speed=" << ship_status.speed
+            ImuData imu_data = toImuData(ship_status);
+            DataCenter::instance().publish(Topic::ImuStatus, imu_data);
+            AINFO << "15m ship status published: speed=" << ship_status.speed
                   << ", roll=" << ship_status.roll
                   << ", pitch=" << ship_status.pitch
-                  << ", rudder=" << ship_status.rudder;
+                  << ", rudder=" << ship_status.rudder
+                  << ", left_rpm=" << ship_status.left_engine_speed
+                  << ", right_rpm=" << ship_status.right_engine_speed;
         } else {
             AERROR << "Unsupported 15m TCP message type: " << header.msg_type;
         }
