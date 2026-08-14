@@ -204,6 +204,7 @@ struct Server_Info {
     float ext_right;
     uint16_t motor_num;
     std::vector<uint16_t> motor_state;
+    uint16_t imu_state;
     uint16_t pc_state;
     float heading;
     float pitch;
@@ -213,9 +214,9 @@ struct Server_Info {
 
 struct Server_Ctrl {
     uint16_t ctrl_mode;
+    uint16_t auto_mode_param;
     float ext_left;
     float ext_right;
-    uint16_t shutdown;
     uint64_t timestamp;
 };
 

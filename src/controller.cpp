@@ -267,10 +267,6 @@ void Controller::handle_message(const json& j) {
 }
 
 void Controller::handle_message(const Server_Ctrl& ctl) {
-    if (ctl.shutdown) {
-        system("sudo shut down -h now");
-    }
-
     // 手动模式
     if (ctl.ctrl_mode == 2) {
         // 清除自动模式的资源
@@ -287,7 +283,7 @@ void Controller::handle_message(const Server_Ctrl& ctl) {
         ctrl_motor(theta_1, theta_2);
     } else if (ctl.ctrl_mode == 1) {
         AINFO << "进入自动模式=================================";
-        auto_mode_ = 1;
+        auto_mode_ = ctl.auto_mode_param;
         // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
         DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
         DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
@@ -664,6 +660,7 @@ void Controller::convertStructToTcp(void* data, Server_Info &info) {
     for (int i = 0; i < info.motor_num; i++) {
         info.motor_state.push_back(pack.motor_state[config_info_.motor_id[i]].alarm_code);
     }
+    info.imu_state = pack.imu_state.alarm_code;
     info.pc_state = pack.pc_state.alarm_code;
     info.heading = pack.imu_state.yaw;
     info.pitch = pack.imu_state.pitch;
