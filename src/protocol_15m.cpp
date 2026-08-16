@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <limits>
+#include <vector>
 
 namespace protocol_15m {
 namespace {
@@ -12,6 +13,25 @@ bool isRatio(float value) {
 
 bool isControlMode(uint16_t value) {
     return value == 1 || value == 2;
+}
+
+bool isKnownFrameType(uint16_t value) {
+    return value == kMsgTypeControlCommand ||
+           value == kMsgTypeInterceptorStatus ||
+           value == kMsgTypeShipStatus;
+}
+
+size_t expectedPayloadLength(uint16_t value) {
+    switch (value) {
+        case kMsgTypeControlCommand:
+            return kControlCommandPayloadLength;
+        case kMsgTypeInterceptorStatus:
+            return kInterceptorStatusPayloadLength;
+        case kMsgTypeShipStatus:
+            return kShipStatusPayloadLength;
+        default:
+            return 0;
+    }
 }
 
 }  // namespace
@@ -175,6 +195,37 @@ DecodeResult decodeShipStatus(const uint8_t* data, size_t length, ShipStatus& ou
     offset += 2;
     out.timestamp = readDoubleBE(data + offset);
 
+    return DecodeResult::success();
+}
+
+DecodeResult extractFrame(std::vector<uint8_t>& stream_buffer, std::vector<uint8_t>& frame) {
+    frame.clear();
+    if (stream_buffer.size() < kHeaderLength) {
+        return DecodeResult::failure("incomplete frame");
+    }
+
+    FrameHeader header{};
+    header.msg_type = readUint16BE(stream_buffer.data());
+    header.payload_length = readUint16BE(stream_buffer.data() + 2);
+
+    if (!isKnownFrameType(header.msg_type)) {
+        stream_buffer.erase(stream_buffer.begin());
+        return DecodeResult::failure("desync");
+    }
+
+    size_t expected_length = expectedPayloadLength(header.msg_type);
+    if (header.payload_length != expected_length) {
+        stream_buffer.erase(stream_buffer.begin());
+        return DecodeResult::failure("desync");
+    }
+
+    size_t frame_length = kHeaderLength + header.payload_length;
+    if (stream_buffer.size() < frame_length) {
+        return DecodeResult::failure("incomplete frame");
+    }
+
+    frame.assign(stream_buffer.begin(), stream_buffer.begin() + static_cast<std::ptrdiff_t>(frame_length));
+    stream_buffer.erase(stream_buffer.begin(), stream_buffer.begin() + static_cast<std::ptrdiff_t>(frame_length));
     return DecodeResult::success();
 }
 

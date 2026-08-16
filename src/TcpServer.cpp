@@ -7,6 +7,7 @@
 #include <iostream>
 #include <log.h>
 #include <set>
+#include <vector>
 
 namespace {
 
@@ -122,6 +123,7 @@ void TcpServer::serverLoop() {
 }
 
 void TcpServer::handleClient(int client_fd) {
+    std::vector<uint8_t> stream_buffer;
     uint8_t receive_buffer[TCP_MAX_BUFFER_LENGTH];
     while (running_) {
         memset(receive_buffer, 0, sizeof(receive_buffer));
@@ -131,41 +133,56 @@ void TcpServer::handleClient(int client_fd) {
             break;
         }
 
-        protocol_15m::FrameHeader header;
-        protocol_15m::DecodeResult header_result =
-            protocol_15m::decodeHeader(receive_buffer, static_cast<size_t>(n), header);
-        if (!header_result.ok) {
-            AERROR << "15m TCP frame header invalid: " << header_result.error;
-            continue;
-        }
+        stream_buffer.insert(stream_buffer.end(), receive_buffer, receive_buffer + n);
 
-        if (header.msg_type == protocol_15m::kMsgTypeControlCommand) {
-            Server_Ctrl ctl{};
-            protocol_15m::DecodeResult result =
-                parseServerCtrl(receive_buffer, static_cast<size_t>(n), ctl);
-            if (!result.ok) {
-                AERROR << "15m control command invalid: " << result.error;
+        while (!stream_buffer.empty()) {
+            std::vector<uint8_t> frame;
+            protocol_15m::DecodeResult frame_result =
+                protocol_15m::extractFrame(stream_buffer, frame);
+            if (!frame_result.ok) {
+                if (frame_result.error == "incomplete frame") {
+                    break;
+                }
+                AERROR << "15m TCP stream desync: " << frame_result.error;
                 continue;
             }
-            bus_.publish("from_tcp", ctl);
-        } else if (header.msg_type == protocol_15m::kMsgTypeShipStatus) {
-            protocol_15m::ShipStatus ship_status{};
-            protocol_15m::DecodeResult result =
-                protocol_15m::decodeShipStatus(receive_buffer, static_cast<size_t>(n), ship_status);
-            if (!result.ok) {
-                AERROR << "15m ship status invalid: " << result.error;
+
+            protocol_15m::FrameHeader header;
+            protocol_15m::DecodeResult header_result =
+                protocol_15m::decodeHeader(frame.data(), frame.size(), header);
+            if (!header_result.ok) {
+                AERROR << "15m TCP frame header invalid: " << header_result.error;
                 continue;
             }
-            ImuData imu_data = toImuData(ship_status);
-            DataCenter::instance().publish(Topic::ImuStatus, imu_data);
-            AINFO << "15m ship status published: speed=" << ship_status.speed
-                  << ", roll=" << ship_status.roll
-                  << ", pitch=" << ship_status.pitch
-                  << ", rudder=" << ship_status.rudder
-                  << ", left_rpm=" << ship_status.left_engine_speed
-                  << ", right_rpm=" << ship_status.right_engine_speed;
-        } else {
-            AERROR << "Unsupported 15m TCP message type: " << header.msg_type;
+
+            if (header.msg_type == protocol_15m::kMsgTypeControlCommand) {
+                Server_Ctrl ctl{};
+                protocol_15m::DecodeResult result =
+                    parseServerCtrl(frame.data(), frame.size(), ctl);
+                if (!result.ok) {
+                    AERROR << "15m control command invalid: " << result.error;
+                    continue;
+                }
+                bus_.publish("from_tcp", ctl);
+            } else if (header.msg_type == protocol_15m::kMsgTypeShipStatus) {
+                protocol_15m::ShipStatus ship_status{};
+                protocol_15m::DecodeResult result =
+                    protocol_15m::decodeShipStatus(frame.data(), frame.size(), ship_status);
+                if (!result.ok) {
+                    AERROR << "15m ship status invalid: " << result.error;
+                    continue;
+                }
+                ImuData imu_data = toImuData(ship_status);
+                DataCenter::instance().publish(Topic::ImuStatus, imu_data);
+                AINFO << "15m ship status published: speed=" << ship_status.speed
+                      << ", roll=" << ship_status.roll
+                      << ", pitch=" << ship_status.pitch
+                      << ", rudder=" << ship_status.rudder
+                      << ", left_rpm=" << ship_status.left_engine_speed
+                      << ", right_rpm=" << ship_status.right_engine_speed;
+            } else {
+                AERROR << "Unsupported 15m TCP message type: " << header.msg_type;
+            }
         }
     }
     close(client_fd);
