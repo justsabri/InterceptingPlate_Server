@@ -74,9 +74,25 @@ void testInterceptorStatus() {
             "status payload length excludes header");
     require(nearlyEqual(protocol_15m::readFloatBE(frame.data() + 4), 12.5f), "status speed");
     require(protocol_15m::readUint16BE(frame.data() + 24) == 2, "motor count");
+    require(protocol_15m::readUint16BE(frame.data() + 26) == 101, "motor1 status");
+    require(protocol_15m::readUint16BE(frame.data() + 28) == 106, "motor2 status");
     require(protocol_15m::readUint16BE(frame.data() + 30) == 101, "motor3 default status");
+    require(protocol_15m::readUint16BE(frame.data() + 32) == 101, "motor4 default status");
     require(nearlyEqual(protocol_15m::readFloatBE(frame.data() + 38), -1.5f), "pitch");
     require(nearlyEqual(protocol_15m::readFloatBE(frame.data() + 42), 2.5f), "roll");
+
+    status.motor_count = 4;
+    status.motor1_status = 101;
+    status.motor2_status = 102;
+    status.motor3_status = 103;
+    status.motor4_status = 104;
+    length = protocol_15m::encodeInterceptorStatus(status, frame.data(), frame.size());
+    require(length == protocol_15m::kInterceptorStatusFrameLength, "4-motor interceptor frame length");
+    require(protocol_15m::readUint16BE(frame.data() + 24) == 4, "4-motor count");
+    require(protocol_15m::readUint16BE(frame.data() + 26) == 101, "4-motor motor1 status");
+    require(protocol_15m::readUint16BE(frame.data() + 28) == 102, "4-motor motor2 status");
+    require(protocol_15m::readUint16BE(frame.data() + 30) == 103, "4-motor motor3 status");
+    require(protocol_15m::readUint16BE(frame.data() + 32) == 104, "4-motor motor4 status");
 }
 
 void testShipStatus() {
