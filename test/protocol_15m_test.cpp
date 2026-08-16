@@ -115,12 +115,66 @@ void testShipStatus() {
     require(!result.ok, "invalid ship payload length should fail");
 }
 
+void testFrameStreamExtraction() {
+    std::vector<uint8_t> control_frame(protocol_15m::kControlCommandFrameLength);
+    protocol_15m::writeUint16BE(control_frame.data(), protocol_15m::kMsgTypeControlCommand);
+    protocol_15m::writeUint16BE(control_frame.data() + 2, protocol_15m::kControlCommandPayloadLength);
+    protocol_15m::writeUint16BE(control_frame.data() + 4, 1);
+    protocol_15m::writeUint16BE(control_frame.data() + 6, 35);
+    protocol_15m::writeFloatBE(control_frame.data() + 8, 0.1f);
+    protocol_15m::writeFloatBE(control_frame.data() + 12, 0.9f);
+    protocol_15m::writeUint64BE(control_frame.data() + 16, 1111ULL);
+
+    std::vector<uint8_t> ship_frame(protocol_15m::kShipStatusFrameLength);
+    protocol_15m::writeUint16BE(ship_frame.data(), protocol_15m::kMsgTypeShipStatus);
+    protocol_15m::writeUint16BE(ship_frame.data() + 2, protocol_15m::kShipStatusPayloadLength);
+    protocol_15m::writeFloatBE(ship_frame.data() + 4, 1.0f);
+    protocol_15m::writeFloatBE(ship_frame.data() + 8, 2.0f);
+    protocol_15m::writeFloatBE(ship_frame.data() + 12, 3.0f);
+    protocol_15m::writeFloatBE(ship_frame.data() + 16, 4.0f);
+    protocol_15m::writeDoubleBE(ship_frame.data() + 20, 120.0);
+    protocol_15m::writeDoubleBE(ship_frame.data() + 28, 30.0);
+    protocol_15m::writeFloatBE(ship_frame.data() + 36, 500.0f);
+    protocol_15m::writeFloatBE(ship_frame.data() + 40, 600.0f);
+    protocol_15m::writeInt16BE(ship_frame.data() + 44, 1);
+    protocol_15m::writeInt16BE(ship_frame.data() + 46, 2);
+    protocol_15m::writeDoubleBE(ship_frame.data() + 48, 2222.5);
+
+    std::vector<uint8_t> stream;
+    stream.insert(stream.end(), control_frame.begin(), control_frame.begin() + 10);
+    std::vector<uint8_t> extracted;
+    protocol_15m::DecodeResult result = protocol_15m::extractFrame(stream, extracted);
+    require(!result.ok, "partial frame should stay buffered");
+    require(stream.size() == 10, "partial frame should not be consumed");
+
+    stream.insert(stream.end(), control_frame.begin() + 10, control_frame.end());
+    stream.insert(stream.end(), ship_frame.begin(), ship_frame.end());
+
+    result = protocol_15m::extractFrame(stream, extracted);
+    require(result.ok, "first full frame should extract");
+    require(extracted.size() == protocol_15m::kControlCommandFrameLength, "first extracted size");
+    protocol_15m::ControlCommand command{};
+    result = protocol_15m::decodeControlCommand(extracted.data(), extracted.size(), command);
+    require(result.ok, "extracted control should decode");
+    require(command.auto_mode_param == 35, "extracted control mode");
+
+    result = protocol_15m::extractFrame(stream, extracted);
+    require(result.ok, "second full frame should extract");
+    require(extracted.size() == protocol_15m::kShipStatusFrameLength, "second extracted size");
+    protocol_15m::ShipStatus status{};
+    result = protocol_15m::decodeShipStatus(extracted.data(), extracted.size(), status);
+    require(result.ok, "extracted ship should decode");
+    require(nearlyEqual(status.speed, 4.0f), "extracted ship speed");
+    require(stream.empty(), "stream buffer should be empty after extraction");
+}
+
 }  // namespace
 
 int main() {
     testControlCommand();
     testInterceptorStatus();
     testShipStatus();
+    testFrameStreamExtraction();
     std::cout << "protocol_15m_test passed" << std::endl;
     return 0;
 }

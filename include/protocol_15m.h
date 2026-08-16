@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace protocol_15m {
 
@@ -86,6 +87,7 @@ void writeDoubleBE(uint8_t* data, double value);
 DecodeResult decodeHeader(const uint8_t* data, size_t length, FrameHeader& out);
 DecodeResult decodeControlCommand(const uint8_t* data, size_t length, ControlCommand& out);
 DecodeResult decodeShipStatus(const uint8_t* data, size_t length, ShipStatus& out);
+DecodeResult extractFrame(std::vector<uint8_t>& stream_buffer, std::vector<uint8_t>& frame);
 
 size_t encodeInterceptorStatus(const InterceptorStatus& status, uint8_t* out, size_t capacity);
 
