@@ -89,6 +89,13 @@ void Controller::start() {
     int pc_freq = config["pc_freq"].get<int>();
 
     int cb_freq = config["cb_freq"].get<int>();
+#ifdef TCP_COMMUNICATION
+    if (cb_freq != 20) {
+        AWARN << "15m TCP interceptor status message requires 20Hz, override cb_freq from "
+              << cb_freq << " to 20";
+        cb_freq = 20;
+    }
+#endif
  
     AINFO << "==========Left motor IDs:";
     for (auto id : config_info_.left_motor) {
