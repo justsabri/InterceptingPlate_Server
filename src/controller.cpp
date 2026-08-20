@@ -89,6 +89,13 @@ void Controller::start() {
     int pc_freq = config["pc_freq"].get<int>();
 
     int cb_freq = config["cb_freq"].get<int>();
+#ifdef TCP_COMMUNICATION
+    if (cb_freq != 20) {
+        AWARN << "15m TCP interceptor status message requires 20Hz, override cb_freq from "
+              << cb_freq << " to 20";
+        cb_freq = 20;
+    }
+#endif
  
     AINFO << "==========Left motor IDs:";
     for (auto id : config_info_.left_motor) {
@@ -267,38 +274,47 @@ void Controller::handle_message(const json& j) {
 }
 
 void Controller::handle_message(const Server_Ctrl& ctl) {
-    if (ctl.shutdown) {
-        system("sudo shut down -h now");
-    }
+    auto is_valid_auto_mode = [](uint16_t mode) {
+        return mode == 1 || mode == 31 || mode == 32 || mode == 33 || mode == 35;
+    };
 
-    // 手动模式
     if (ctl.ctrl_mode == 2) {
-        // 清除自动模式的资源
         DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
         DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
         alg_processor_->clear();
         auto_mode_ = 0;
 
         AINFO << "==========MANUAL mode " << ": plate_1=" << ctl.ext_left << ", plate_2=" << ctl.ext_right;
-        double theta_1 = yToTheta(ctl.ext_left*config_info_.max_ext);
-        double theta_2 = yToTheta(ctl.ext_right*config_info_.max_ext);
-        AINFO <<"=========角度："<<theta_1<<"========"<<theta_2;
-        // 控制 moter_ctrl执行对应命令
+        double theta_1 = yToTheta(ctl.ext_left * config_info_.max_ext);
+        double theta_2 = yToTheta(ctl.ext_right * config_info_.max_ext);
+        AINFO << "=========角度：" << theta_1 << "========" << theta_2;
         ctrl_motor(theta_1, theta_2);
-    } else if (ctl.ctrl_mode == 1) {
-        AINFO << "进入自动模式=================================";
-        auto_mode_ = 1;
-        // 向数据中心注册算法topic数据和data_cb，等待数据中心回数据,数据中心回数据后立即push给算法，等待算法结果
+        return;
+    }
+
+    if (ctl.ctrl_mode == 1) {
+        if (!is_valid_auto_mode(ctl.auto_mode_param)) {
+            AERROR << "Invalid 15m auto mode param: " << ctl.auto_mode_param;
+            return;
+        }
+
+        AINFO << "进入自动模式================================= mode=" << ctl.auto_mode_param;
+        if (auto_mode_ != ctl.auto_mode_param) {
+            DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+            DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+            alg_processor_->clear();
+        }
+
+        auto_mode_ = ctl.auto_mode_param;
+        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
+        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
         DataCenter::instance().subscribe<ImuData>(Topic::ImuStatus, imu_data_cb, this);
         DataCenter::instance().subscribe<std::map<int, MotorData>>(Topic::MotorStatus, motor_data_cb, this);
         AINFO << "注册回调成功=================================";
-    } else if (ctl.ctrl_mode == 0) {
-        AINFO << "进入待机模式=================================";
-        // 清除自动模式的资源
-        auto_mode_ = 0;
-        DataCenter::instance().unsubscribe<ImuData>(Topic::ImuStatus, this);
-        DataCenter::instance().unsubscribe<std::map<int, MotorData>>(Topic::MotorStatus, this);
+        return;
     }
+
+    AERROR << "Invalid 15m control mode: " << ctl.ctrl_mode;
 }
 
 static void auto_ctrl(void* ptr) {
@@ -664,6 +680,7 @@ void Controller::convertStructToTcp(void* data, Server_Info &info) {
     for (int i = 0; i < info.motor_num; i++) {
         info.motor_state.push_back(pack.motor_state[config_info_.motor_id[i]].alarm_code);
     }
+    info.imu_state = pack.imu_state.alarm_code;
     info.pc_state = pack.pc_state.alarm_code;
     info.heading = pack.imu_state.yaw;
     info.pitch = pack.imu_state.pitch;

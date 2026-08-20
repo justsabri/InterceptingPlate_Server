@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include "event_bus.h"
 #include "data_struct.h"
+#include "protocol_15m.h"
 #include <unistd.h>
 #include <set>
 
@@ -20,7 +21,7 @@ public:
 private:
     void serverLoop();
     void handleClient(int client_fd);
-    bool parseServerCtrl(const uint8_t* buf, size_t len, Server_Ctrl& out);
+    protocol_15m::DecodeResult parseServerCtrl(const uint8_t* buf, size_t len, Server_Ctrl& out);
     size_t packServerInfo(const Server_Info& server_info, uint8_t* buffer);
     void returnTcpData(const Server_Info& info);
 
