@@ -79,6 +79,7 @@ target_compile_definitions(websocket_server PUBLIC WEBSOCKET_COMMUNICATION)
 set(TCP_SOURCE_FILES
     src/main.cpp
     src/TcpServer.cpp
+    src/protocol_15m.cpp
     src/controller.cpp
     src/alg_processor.cpp
     src/pid_control.cpp
@@ -103,14 +104,14 @@ target_include_directories(tcp_server PRIVATE
 # 修正库链接
 target_link_libraries(tcp_server PRIVATE
     # Boost组件（需要指定具体库）
-    Boost::system  
+    Boost::system
     # 线程库
     Threads::Threads
     # JSON库
     nlohmann_json::nlohmann_json
     # 4. 添加Boost头文件库（可选但推荐）
     Boost::headers
-    
+
     glog::glog
 )
 
@@ -145,7 +146,7 @@ target_include_directories(modbustcp_server PRIVATE
 # 修正库链接
 target_link_libraries(modbustcp_server PRIVATE
     # Boost组件（需要指定具体库）
-    Boost::system  
+    Boost::system
     # 线程库
     Threads::Threads
     # modbus库
@@ -187,7 +188,7 @@ target_include_directories(modbusrtu_server PRIVATE
 # 修正库链接
 target_link_libraries(modbusrtu_server PRIVATE
     # Boost组件（需要指定具体库）
-    Boost::system  
+    Boost::system
     # 线程库
     Threads::Threads
     # modbus库
@@ -201,6 +202,15 @@ target_link_libraries(modbusrtu_server PRIVATE
 # 增加宏定义
 target_compile_definitions(modbusrtu_server PUBLIC MODBUSRTU_COMMUNICATION)
 
+add_executable(protocol_15m_test
+    test/protocol_15m_test.cpp
+    src/protocol_15m.cpp
+)
+
+target_include_directories(protocol_15m_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 # 电机手动修改参数
 if (ENABLE_MOTOR_MODIFY)
     add_executable(motor_menu
@@ -212,7 +222,7 @@ if (ENABLE_MOTOR_MODIFY)
     )
     target_link_libraries(motor_menu PRIVATE
         # Boost组件（需要指定具体库）
-        Boost::system  
+        Boost::system
         # 线程库
         Threads::Threads
         # JSON库
@@ -235,7 +245,7 @@ if (ENABLE_VIRTUAL_DEVICES)
     )
     target_link_libraries(virtual_device PRIVATE
         # Boost组件（需要指定具体库）
-        Boost::system  
+        Boost::system
         # 线程库
         Threads::Threads
         # JSON库
