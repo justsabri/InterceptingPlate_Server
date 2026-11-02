@@ -1,0 +1,17 @@
+Log file created at: 1970/01/01 08:01:55
+Running on machine: lj-pc
+Running duration (h:mm:ss): 0:00:00
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+E19700101 08:01:55.564998 548005199888 log.h:66] Received signal 6, stack trace:
+E19700101 08:01:55.565283 548005199888 log.h:69] ./motor_menu() [0x40955c]
+E19700101 08:01:55.565303 548005199888 log.h:69] linux-vdso.so.1(__kernel_rt_sigreturn+0) [0x7f97f295b0]
+E19700101 08:01:55.565321 548005199888 log.h:69] /lib/aarch64-linux-gnu/libc.so.6(gsignal+0xe0) [0x7f97b64c60]
+E19700101 08:01:55.565338 548005199888 log.h:69] /lib/aarch64-linux-gnu/libc.so.6(abort+0x110) [0x7f97b51a68]
+E19700101 08:01:55.565355 548005199888 log.h:69] /lib/aarch64-linux-gnu/libstdc++.so.6(_ZN9__gnu_cxx27__verbose_terminate_handlerEv+0x10c) [0x7f97d6883c]
+E19700101 08:01:55.565371 548005199888 log.h:69] /lib/aarch64-linux-gnu/libstdc++.so.6(+0x9f21c) [0x7f97d6621c]
+E19700101 08:01:55.565388 548005199888 log.h:69] /lib/aarch64-linux-gnu/libstdc++.so.6(+0x9f280) [0x7f97d66280]
+E19700101 08:01:55.565405 548005199888 log.h:69] ./motor_menu() [0x40dee4]
+E19700101 08:01:55.565421 548005199888 log.h:69] /lib/aarch64-linux-gnu/libc.so.6(+0x3633c) [0x7f97b6733c]
+E19700101 08:01:55.565438 548005199888 log.h:69] /lib/aarch64-linux-gnu/libc.so.6(+0x364cc) [0x7f97b674cc]
+E19700101 08:01:55.565455 548005199888 log.h:69] /lib/aarch64-linux-gnu/libc.so.6(__libc_start_main+0xec) [0x7f97b51d94]
+E19700101 08:01:55.565473 548005199888 log.h:69] ./motor_menu() [0x409444]

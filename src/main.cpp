@@ -5,6 +5,8 @@
 #include <log.h>
 #include <cstdlib>
 #include "controller.h"
+
+#define SOFTWARE_VERSION "V2.0.0"
 /**
  * @brief 程序主入口
  * 
@@ -53,6 +55,7 @@ int main() {
     InitLog("ModbusTcpServer", log_path.string().c_str(), 10);
 
     AINFO<<"start system";
+    AINFO<<"software version: " << SOFTWARE_VERSION;
     try {
         // 创建事件总线
         EventBus event_bus;
@@ -86,6 +89,7 @@ int main() {
     InitLog("ModbusRTUServer", log_path.string().c_str(), 10);
 
     AINFO<<"start system";
+    AINFO<<"software version: " << SOFTWARE_VERSION;
     try {
         // 创建事件总线
         EventBus event_bus;

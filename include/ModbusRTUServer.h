@@ -278,7 +278,7 @@ private:
                             modbus_bus_.publish("from_modbus_rtu", modbusReceiveData_);
                             handleReadHoldingRegisters(addr, count);
                             // 打印发送的响应
-                            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                            std::this_thread::sleep_for(std::chrono::milliseconds(40));
                             AINFO << "发送Modbus RTU响应: 功能码=0x03, 地址=" << addr << ", 数量=" << count;
                             modbus_reply(ctx_, query_, rc, mapping_);
                             break;
@@ -317,7 +317,7 @@ private:
                             modbus_bus_.publish("to_imu", modbusSendData_);
                             AINFO<<"timestamp"<<modbusSendData_.timestamp;
                             // 打印发送的响应
-                            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                            std::this_thread::sleep_for(std::chrono::milliseconds(40));
                             AINFO << "发送Modbus RTU响应: 功能码=0x10, 地址=" << addr << ", 数量=" << count;
                             modbus_reply(ctx_, query_, rc, mapping_);
                             break;

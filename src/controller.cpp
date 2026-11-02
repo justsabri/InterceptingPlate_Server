@@ -6,6 +6,7 @@
 #include "data_center.h"
 #include <chrono>
 #include <iomanip>
+#include <algorithm>
 
 #ifdef MODBUSRTU_COMMUNICATION
 #include "modbus_rtu_bus.h"
@@ -457,9 +458,15 @@ void Controller::handle_message(const ModbusData &data) {
         
         if (monitor_pack_.motor_state.count(config_info_.left_motor[0]) > 0) {
             tmp.leftCurrentExtend = thetaToY(monitor_pack_.motor_state[config_info_.left_motor[0]].plate) / config_info_.max_ext;
+	    tmp.leftCurrentExtend = std::max(0.0f, tmp.leftCurrentExtend);
+	    tmp.leftCurrentExtend = std::min(1.0f, tmp.leftCurrentExtend);
+	    tmp.leftCurrentExtend = std::round(tmp.leftCurrentExtend * 100.0f) / 100.0f;
         }
         if (monitor_pack_.motor_state.count(config_info_.right_motor[0]) > 0) {
             tmp.rightCurrentExtend = thetaToY(monitor_pack_.motor_state[config_info_.right_motor[0]].plate) / config_info_.max_ext;
+	    tmp.rightCurrentExtend = std::max(0.0f, tmp.rightCurrentExtend);
+	    tmp.rightCurrentExtend = std::min(1.0f, tmp.rightCurrentExtend);
+	    tmp.rightCurrentExtend = std::round(tmp.rightCurrentExtend * 100.0f) / 100.0f;
         }
         
         tmp.motorCount = config_info_.motor_num;
@@ -689,132 +696,13 @@ double simulation_angle(double x) {
 }
 
 
-// // 最优值为-2°，对应伸缩量为15mm
-// double simulation_angle(double x) {
-//     if (x < 0 || x > 50) {
-//         return 0;
-//     } else if (x <= 15) {
-//         // 从(0,-11)到(15,-2)的线性插值
-//         return -11 + 0.6 * x; // 斜率 = (-2 - (-11)) / (15 - 0) = 9/15 = 0.6
-//     } else if (x <= 20) {
-//         // 从(15,-2)到(20,-5)的线性插值
-//         return -2 - 0.6 * (x - 15); // 斜率 = (-5 - (-2)) / (20 - 15) = -3/5 = -0.6
-//     } else if (x <= 30) {
-//         // 从(20,-5)到(30,-3)的线性插值
-//         return -5 + 0.2 * (x - 20); // 斜率 = (-3 - (-5)) / (30 - 20) = 2/10 = 0.2
-//     } else {
-//         // 从(30,-3)到(50,-9)的线性插值
-//         return -3 - 0.3 * (x - 30); // 斜率 = (-9 - (-3)) / (50 - 30) = -6/20 = -0.3
-//     }
-// }
-
-
-
-
-// double simulation_angle(int speed, double x) {
-//     // 根据航速和等效截流板伸缩量计算船舶角度
-//     // 参数 speed: 航速（单位knots）
-//     // 参数 x: 等效截流板伸缩量（单位mm）
-//     // 返回: 船舶角度（单位度）
-    
-//     double a = 0.0, b = 0.0, c = 0.0, d = 0.0, e = 0.0, f = 0.0;
-
-//     if (speed == 5) {
-//         a = -2E-07;
-//         b = 2E-05;
-//         c = -0.001;
-//         d = 0.0195;
-//         e = -1.46;
-//         f = 0;
-//     }
-//     else if (speed == 10) {
-//         a = -1E-07;
-//         b = 1E-05;
-//         c = -0.0005;
-//         d = 0.0139;
-//         e = -2.06;
-//         f = 0;
-//     }
-//     else if (speed == 15) {
-//         a = -0.0036;
-//         b = -0.1279;
-//         c = 0.778;
-//         d = -0.3791;
-//         e = -4.436;
-//         f = 0;
-//     }
-//     else if (speed == 20) {
-//         a = -2E-07;
-//         b = 2E-05;
-//         c = -0.001;
-//         d = 0.0195;
-//         e = -1.46;
-//         f = 0;
-//     }
-//     else if (speed == 25) {
-//         a = -4E-07;
-//         b = 5E-05;
-//         c = -0.0026;
-//         d = 0.1199;
-//         e = -4.86;
-//         f = 0;
-//     }
-//     else if (speed == 30) {
-//         a = 1E-07;
-//         b = -1E-05;
-//         c = -0.0006;
-//         d = 0.1309;
-//         e = -5.26;
-//         f = 0;
-//     }
-//     else if (speed == 35) {
-//         a = -2E-06;
-//         b = 0.0002;
-//         c = -0.0058;
-//         d = 0.1466;
-//         e = -4.84;
-//         f = 0;
-//     }
-//     else if (speed == 40) {
-//         a = -3E-06;
-//         b = 0.0003;
-//         c = -0.0086;
-//         d = 0.1689;
-//         e = -4.24;
-//         f = 0;
-//     }
-//     else if (speed == 45) {
-//         a = -3E-06;
-//         b = 0.0003;
-//         c = -0.0085;
-//         d = 0.1493;
-//         e = -3.61;
-//         f = 0;
-//     }
-//     else if (speed == 50) {
-//         a = -2E-06;
-//         b = 0.0002;
-//         c = -0.0063;
-//         d = 0.1437;
-//         e = -3.16;
-//         f = 0;
-//     }
-
-//     // 计算船舶角度
-//     double x2 = x * x;
-//     double x3 = x2 * x;
-//     double x4 = x3 * x;
-//     double x5 = x4 * x;
-//     double z = (a * x5 + b * x4 + c * x3 + d * x2 + e * x + f);
-//     return z;
-// }
-//-------------------------------------------------------------------------------
 
 void Controller::tryProcess()
 {
     if (auto_mode_ == 0) {
         return;
     }
+    
     std::lock_guard<std::mutex> l(package_lock_);
     if (alg_package_.motor_data.has_value() && alg_package_.imu_data.has_value()) {
         AWARN<<"向自动控制算法传入数据=========================";
@@ -844,9 +732,13 @@ void Controller::tryProcess()
 
         alg_package_.in.pitch_current = alg_package_.imu_data.value().pitch;
         alg_package_.in.heel_current = alg_package_.imu_data.value().roll;
-        alg_package_.in.left_current =  thetaToY(alg_package_.motor_data.value()[0].position);
-        alg_package_.in.right_current = thetaToY(alg_package_.motor_data.value()[2].position);
+
+        alg_package_.in.left_current = thetaToY(monitor_pack_.motor_state[config_info_.left_motor[0]].plate);
+        alg_package_.in.right_current = thetaToY(monitor_pack_.motor_state[config_info_.right_motor[0]].plate);
+
         alg_package_.in.current_RPM = alg_package_.imu_data.value().rpm;
+        alg_package_.in.current_right_RPM = alg_package_.imu_data.value().right_rpm;
+        alg_package_.in.current_left_RPM = alg_package_.imu_data.value().left_rpm;
         alg_package_.in.current_rudder = alg_package_.imu_data.value().rudder;
         alg_package_.in.max_extension = safe_ext_.getMaxExtensionRatio(speed) * config_info_.max_ext;
 
@@ -957,10 +849,10 @@ double Controller::yToTheta(double y) {
     double ratio = (y - config_info_.ext2deg.a) / config_info_.ext2deg.b;
     // 角度结果
     double result_deg = std::asin(ratio) * RAD_TO_DEG - config_info_.ext2deg.x_min;
-    if (result_deg < 5) {
-        result_deg = 5;
-    } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 5) {
-        result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 5;
+    if (result_deg < 0) {
+        result_deg = 0;
+    } else if (result_deg > config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 0) {
+        result_deg = config_info_.ext2deg.x_max - config_info_.ext2deg.x_min - 0;
     }
     AINFO << "y2t " << y << " - " << result_deg;
     return result_deg;

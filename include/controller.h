@@ -59,37 +59,58 @@ private:
         ~SafeExtension() {};
         float getMaxExtensionRatio(float speed /*kn*/)
         {
-            float ratio = 1.0;
+            // float ratio = 1.0;
+            // // 放开阈值限制
+            // if (speed < 40)
+            // {
+            //     ratio = 1.0;
+            // }
+            // else if (speed < 50)
+            // {
+            //     ratio = 0.5;
+            // }
+            // else
+            // {
+            //     ratio = 0.25;
+            // }
+            // return ratio;
 
-            // 放开阈值限制
-            if (speed < 40) {
-                ratio = 1.0;
-            } else if (speed < 50) {
-                ratio = 0.5;
-            } else {
-                ratio = 0.25;
-            }
-            return ratio;
+            // if (speed <= 20)
+            // {
+            //     return ratio;
+            // }
+            // else if (speed <= 40)
+            // {
+            //     ratio = 2.2 - 0.06 * speed;
+            //     // ratio = (speed - 40) * (speed - 40) * (speed - 40) * (speed - 40) * 4 / 2025;
+            //     //-----------会存在小于0------------------
+            //     if (ratio < 0.0)
+            //     {
+            //         ratio = 0.0;
+            //     }
+            // }
+            // else
+            // {
+            //     ratio = 0;
+            // }
+            // return ratio;
 
-            if (speed <= 20)
+            if (speed > 50.0f)
             {
-                return ratio;
+                return 0.0f;
             }
-            else if (speed <= 40)
-            {
-                ratio = 2.2 - 0.06 * speed;
-                // ratio = (speed - 40) * (speed - 40) * (speed - 40) * (speed - 40) * 4 / 2025;
-                //-----------会存在小于0------------------
-                if (ratio < 0.0)
-                {
-                    ratio = 0.0;
-                }
+            // else if (speed < 6.0f)
+            // {                                 // [4, 6)
+            //     return (speed - 4.0f) / 2.0f; // 0 → 1.0
+            // }
+            else if (speed <= 40.0f)
+            { // [0, 40]
+                return 1.0f;
             }
             else
-            {
-                ratio = 0;
+            {                                   // (40, 50]
+                return (50.0f - speed) / 10.0f; // 1.0 → 0
             }
-            return ratio;
         }
     };
 
